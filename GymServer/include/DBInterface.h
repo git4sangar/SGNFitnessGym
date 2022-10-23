@@ -92,6 +92,7 @@ class DBInterface {
     Logger& mLogger;
     static DBInterface* pThis;
 
+	json 					parseAttendanceReport(const std::string& strQuery);
 public:
     typedef std::shared_ptr<DBInterface> Ptr;
     static DBInterface *getInstance( std::string pFileName = "")
@@ -108,7 +109,7 @@ public:
     User::Ptr				getUserByStringField(const std::string& pField, const std::string& pValue);
     int32_t     			newMembershipNo();
     Fees::Ptr				getLastPayDetails(int32_t pMembershipNo);
-	std::string				parseQuery(const std::string& pQuery);
+	std::string				executeUserSelectQuery(const std::string& pQuery);
     std::vector<User::Ptr>	executeSelectQuery(const std::string& pQuery);
 	bool					executeUpdateQuery(const std::string& pQuery);
 

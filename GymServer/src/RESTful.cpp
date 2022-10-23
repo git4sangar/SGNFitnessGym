@@ -154,18 +154,23 @@ void RESTful::executeSelectQuery(const PistacheReq &request, PistacheResp respon
 		response.send(Pistache::Http::Code::Not_Found, packResponse(false, "Blank Query"), MIME(Application, Json));
 		return;
 	}
-	std::vector<User::Ptr> users	= mpDBInterface->executeSelectQuery(strQuery);
-	if(users.size() == 0)  {
-		response.send(Pistache::Http::Code::Not_Found, packResponse(false, "No results"), MIME(Application, Json));
-		return;
-	}
+	std::string strQueryResp	= mpDBInterface->executeUserSelectQuery(strQuery);
+	if(!strQueryResp.empty()) {
+		response.send(Pistache::Http::Code::Ok, strQueryResp, MIME(Application, Json));
+	} else {
+		std::vector<User::Ptr> users	= mpDBInterface->executeSelectQuery(strQuery);
+		if(users.size() == 0)  {
+			response.send(Pistache::Http::Code::Not_Found, packResponse(false, "No results"), MIME(Application, Json));
+			return;
+		}
 
-	json pRoots	= json::array();
-	json pRoot;
-	for(auto pUser : users) pRoots.push_back(pUser->toJsonObj());
-	pRoot["isOk"]	= true;
-	pRoot["users"]	= pRoots;
-	response.send(Pistache::Http::Code::Ok, pRoot.dump(), MIME(Application, Json));
+		json pRoots	= json::array();
+		json pRoot;
+		for(auto pUser : users) pRoots.push_back(pUser->toJsonObj());
+		pRoot["isOk"]	= true;
+		pRoot["rows"]	= pRoots;
+		response.send(Pistache::Http::Code::Ok, pRoot.dump(), MIME(Application, Json));
+	}
 }
 
 void RESTful::addOrUpdateFee(const PistacheReq &request, PistacheResp response) {

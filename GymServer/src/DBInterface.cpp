@@ -179,42 +179,66 @@ bool DBInterface::updateUserValidity(int32_t pMembershipNo, time_t pValidity) {
     return true;
 }
 
-std::string DBInterface::parseQuery(const std::string& pQuery) {
+json DBInterface::parseAttendanceReport(const std::string& strQuery) {
+	if(strQuery.empty()) return json::array();
+
+	json rows = json::array();
+	SQLite::Statement query(*mDB, strQuery);
+	while(query.executeStep()) {
+		Attendance::Ptr pAttendance	= Attendance::parseAttendance(&query);
+		if(!pAttendance) continue;
+
+		json row;
+		User::Ptr pUser	= getUser(pAttendance->mMembershipNo);
+		row["User No"]	= pAttendance->mMembershipNo;
+		row["Name"]	= pUser->mName;
+		row["In Time"]	= pAttendance->mInDateString;
+		row["Out Time"]	= pAttendance->mOutDateString;
+		row["Duration"]	= pAttendance->mDuration;
+		row["Expiry"]	= pUser->mValidityEnd;
+		rows.push_back(row);
+	}
+	return rows;
+}
+
+std::string DBInterface::executeUserSelectQuery(const std::string& pQuery) {
 	std::string strTemp, strQuery;
 	time_t tmTemp = 0;
 	strQuery = pQuery;
-	std::stringstream ss;
 
-	MyDateTime::Ptr pMyDate	= std::make_shared<MyDateTime>();
 	std::transform(strQuery.begin(), strQuery.end(), strQuery.begin(), ::tolower);
-	if(strQuery == "get members came today") {
-		strTemp		= pMyDate->getDateStr();
-		time_t sod	= MyDateTime::create(strTemp, "dd-MM-yyyy", true)->getEpoch();
-		time_t eod	= MyDateTime::create(strTemp, "dd-MM-yyyy", false)->getEpoch();
+	for(const auto& ch : strQuery) if(ch != ' ' && ch != '\t') strTemp += ch;
 
-		ss.str(""); ss	<< "SELECT * FROM user WHERE last_visit > " << sod << " AND last_visit < " << eod
-						<< " ORDER BY last_visit DESC;";
-		strQuery = ss.str();
-	} else if(strQuery == "get members came yesterday") {
-		tmTemp		= pMyDate->getEpoch() - SECS_IN_A_DAY; 
-		pMyDate		= std::make_shared<MyDateTime>(tmTemp);
-		strTemp		= pMyDate->getDateStr();
-
-		time_t sod	= MyDateTime::create(strTemp, "dd-MM-yyyy", true)->getEpoch();
-		time_t eod	= MyDateTime::create(strTemp, "dd-MM-yyyy", false)->getEpoch();
-
-		ss.str(""); ss  << "SELECT * FROM user WHERE last_visit > " << sod << " AND last_visit < " << eod
-						<< " ORDER BY last_visit DESC;";
-		strQuery = ss.str();
+	MyDateTime::Ptr pDateTime;
+	if(strTemp == "getmemberscametoday") {
+		pDateTime	= std::make_shared<MyDateTime>();
+	} else if(strTemp == "getmemberscameyesterday") {
+		pDateTime	= std::make_shared<MyDateTime>();
+		tmTemp		= pDateTime->getEpoch() - SECS_IN_A_DAY; 
+		pDateTime	= std::make_shared<MyDateTime>(tmTemp);
+	} else if(strTemp.find("getmemberscameon") != std::string::npos) {
+		std::string dateStr	= strQuery.substr(strQuery.length() - 10);
+		pDateTime			= MyDateTime::create(dateStr, "dd-MM-yyyy");
 	}
-	return strQuery;
+
+	if(pDateTime) {
+		json pRoot;
+		std::stringstream ss;
+		ss.str(""); ss << "SELECT * FROM Attendance WHERE SUBSTR(in_date_string, 1, 10) = \"" << pDateTime->getDateStr() << "\";";
+		pRoot["isOk"]	= true;
+		pRoot["rows"]	= parseAttendanceReport(ss.str());
+		return pRoot.dump();
+	}
+
+	return std::string();
 }
 
 std::vector<User::Ptr> DBInterface::executeSelectQuery(const std::string& pQuery) {
 	std::vector<User::Ptr> users;
+	std::vector<std::string> colNames;
 	User::Ptr pUser;
 	
-	SQLite::Statement query(*mDB, parseQuery(pQuery));
+	SQLite::Statement query(*mDB, pQuery);
 	while(query.executeStep()) {
 		pUser	= User::parseUser(&query);
 		users.push_back(pUser);
