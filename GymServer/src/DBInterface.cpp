@@ -191,11 +191,12 @@ json DBInterface::parseAttendanceReport(const std::string& strQuery) {
 		json row;
 		User::Ptr pUser	= getUser(pAttendance->mMembershipNo);
 		row["User No"]	= pAttendance->mMembershipNo;
-		row["Name"]	= pUser->mName;
-		row["In Time"]	= pAttendance->mInDateString;
-		row["Out Time"]	= pAttendance->mOutDateString;
+		row["Name"]     = pUser->mName;
+		row["Date"]     = pAttendance->mInDateString.length() != MyDateTime::DATE_TIME_LENGTH ? "-" : pAttendance->mInDateString.substr(0,10);
+		row["In Time"]	= pAttendance->mInDateString.length() != MyDateTime::DATE_TIME_LENGTH ? "-" : pAttendance->mInDateString.substr(11,5);
+		row["Out Time"]	= pAttendance->mOutDateString.length()!= MyDateTime::DATE_TIME_LENGTH ? "-" : pAttendance->mOutDateString.substr(11,5);
 		row["Duration"]	= pAttendance->mDuration;
-		row["Expiry"]	= pUser->mValidityEnd;
+		row["Expiry"]	= std::make_shared<MyDateTime>(pUser->mValidityEnd)->getDateStr();
 		rows.push_back(row);
 	}
 	return rows;
@@ -218,7 +219,7 @@ std::string DBInterface::executeUserSelectQuery(const std::string& pQuery) {
 		pDateTime	= std::make_shared<MyDateTime>(tmTemp);
 	} else if(strTemp.find("getmemberscameon") != std::string::npos) {
 		std::string dateStr	= strQuery.substr(strQuery.length() - 10);
-		pDateTime			= MyDateTime::create(dateStr, "dd-MM-yyyy");
+		pDateTime	= MyDateTime::create(dateStr, "dd-MM-yyyy");
 	}
 
 	if(pDateTime) {

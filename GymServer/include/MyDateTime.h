@@ -46,6 +46,7 @@ class MyDateTime {
     }
 public:
     typedef std::shared_ptr<MyDateTime> Ptr;
+    static constexpr int8_t DATE_TIME_LENGTH   = 19;
     static constexpr int32_t INVALID   = 1;
 
     MyDateTime(time_t pDateTime = 0)
