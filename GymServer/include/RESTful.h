@@ -9,9 +9,11 @@
 #include <pistache/net.h>
 #include <pistache/router.h>
 
-#include <nlohmann/json.hpp>
+#include "nlohmann_json.hpp"
 #include "DBInterface.h"
 #include "Logger.h"
+
+using json = nlohmann::ordered_json;
 
 class RESTful {
 public:

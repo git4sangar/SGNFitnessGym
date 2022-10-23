@@ -20,7 +20,7 @@
 
 	Logger::Logger() : mbTime{ true } {
 		time_t t = time(0);
-		std::string fileName = "/home/sgn/sgn/projs/gym/logs/log_gym_" + std::to_string(t);
+		std::string fileName = "/home/sgn/sgn/projs/SGNFitnessGym/GymServer/logs/log_gym_" + std::to_string(t);
 		mLogFile.open(fileName, std::ios::out);
 	}
 

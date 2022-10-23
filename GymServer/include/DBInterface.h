@@ -9,10 +9,10 @@
 
 #include "SQLiteCpp/SQLiteCpp.h"
 #include "MyDateTime.h"
-#include "nlohmann/json.hpp"
+#include "nlohmann_json.hpp"
 #include "Logger.h"
 
-using namespace nlohmann;
+using json = nlohmann::ordered_json;
 
 struct User {
     typedef std::shared_ptr<User> Ptr;

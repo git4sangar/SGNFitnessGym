@@ -3,10 +3,10 @@
 #include <iostream>
 #include <exception>
 
-#include <nlohmann/json.hpp>
+#include "nlohmann_json.hpp"
 #include "RESTful.h"
 
-using json = nlohmann::json;
+using json = nlohmann::ordered_json;
 
 void RESTful::configureRoutes()
 {

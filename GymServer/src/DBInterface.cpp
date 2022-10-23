@@ -3,12 +3,12 @@
 #include <memory>
 #include <sstream>
 
-#include <nlohmann/json.hpp>
+#include "nlohmann_json.hpp"
 
 #include "MyDateTime.h"
 #include "DBInterface.h"
 
-using json = nlohmann::json;
+using json = nlohmann::ordered_json;
 
 DBInterface* DBInterface::pThis = nullptr;
 
