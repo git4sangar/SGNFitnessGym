@@ -6,7 +6,7 @@
 #include <QTimer>
 #include <QMainWindow>
 
-#include "user.h"
+#include "queryresponseparser.h"
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class MainWindow; }
@@ -24,14 +24,10 @@ private slots:
     void clearStatus();
     void onEpochResponse(QNetworkReply *pReply);
     void onQueryResponse(QNetworkReply *pReply);
+    void onReportQueries(QNetworkReply *pReply);
     void on_btnQuery_clicked();
-    void on_btnRenewals_clicked();
-
-    void on_btnAbsentees_clicked();
-
-    void on_btnBDay_clicked();
-
     void on_tblWdgtReport_cellClicked(int row, int column);
+    void on_tblWdgtQuery_cellClicked(int row, int column);
 
 private:
     void    queryDB(QString pSQL);
@@ -39,7 +35,8 @@ private:
     QString getPhoto(int32_t pMembershipNo);
     void    setPhoto(QString pPhoto);
     int32_t getMembershipNoFromFileName(QString pFileName);
-    void    loadTableWidget(const QVector<User::Ptr>& pUsers);
+    void    loadTableWidget(QueryResponseParser::Ptr pParser);
+    void    loadQueryWidget();
 
     Ui::MainWindow          *ui;
     QNetworkAccessManager   *mpHttpMgr;
@@ -47,5 +44,6 @@ private:
     QString                 mImagesDir;
     time_t                  mCurEpoch;
     QStringList             mReportOptions;
+    QueryResponseParser::Ptr mpReportQueries;
 };
 #endif // MAINWINDOW_H

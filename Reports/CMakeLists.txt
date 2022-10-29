@@ -19,9 +19,11 @@ set(PROJECT_SOURCES
         mainwindow.cpp
         mainwindow.h
         mainwindow.ui
-        json.hpp
+        nlohmann_json.hpp
         user.h
         user.cpp
+        queryresponseparser.h
+        queryresponseparser.cpp
 )
 
 if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)

@@ -5,9 +5,10 @@
 #include <iostream>
 #include <QString>
 #include <QTableWidgetItem>
-#include "json.hpp"
+#include "nlohmann_json.hpp"
 
-using namespace nlohmann;
+using json = nlohmann::ordered_json;
+
 class User
 {
     QString     mName, mPhoto, mAddress, mEmail,

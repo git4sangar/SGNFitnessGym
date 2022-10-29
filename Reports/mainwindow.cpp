@@ -4,12 +4,14 @@
 #include <QFileInfo>
 #include <QtNetwork/QNetworkAccessManager>
 #include <QtNetwork/QNetworkReply>
+
+#include "queryresponseparser.h"
 #include "mainwindow.h"
 #include "./ui_mainwindow.h"
+#include "user.h"
+#include "nlohmann_json.hpp"
 
-#include "json.hpp"
-
-using namespace nlohmann;
+using json = nlohmann::ordered_json;
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -40,7 +42,7 @@ MainWindow::~MainWindow()
 
 // ----------------------------------------------------------
 //                   Network Requests & Responses
-//                  142.93.216.207,  192.168.83.12
+//                  142.93.216.207,  192.168.83.129
 // ----------------------------------------------------------
 
 void MainWindow::onEpochResponse(QNetworkReply *pReply) {
@@ -51,35 +53,31 @@ void MainWindow::onEpochResponse(QNetworkReply *pReply) {
     if(pRoot.is_discarded()) { mCurEpoch = 0; return; }
     if(pRoot.value<bool>("isOk", false))
         mCurEpoch   = pRoot.value<time_t>("epoch", 0);
-    qDebug() << "Current Epoch " << mCurEpoch;
+
+    QNetworkRequest request;
+    QString strUrl= QString("http://142.93.216.207:8080/getreportqueries");
+    request.setUrl(QUrl(strUrl));
+
+    connect(mpHttpMgr,&QNetworkAccessManager::finished, this, &MainWindow::onReportQueries);
+    mpHttpMgr->get(request);
 }
 
-void MainWindow::on_btnRenewals_clicked() {
-    QString strQuery    =   QString("SELECT * FROM user WHERE validity_end < ")
-                            + QString::number(mCurEpoch - User::SECS_IN_A_DAY)
-                            + QString(" ORDER BY validity_end DESC;");
-    queryDB(strQuery);
-}
+void MainWindow::onReportQueries(QNetworkReply *pReply) {
+    disconnect(mpHttpMgr,&QNetworkAccessManager::finished, this, &MainWindow::onReportQueries);
+    QString strResp = pReply->readAll();
+    json pRoot      = json::parse(strResp.toStdString(), nullptr, false);
+    if(pRoot.is_discarded() || !pRoot.value<bool>("isOk", false)) { updateStatus("No Response"); return; }
 
-void MainWindow::on_btnAbsentees_clicked() {
-    int32_t iTemp = 5 * User::SECS_IN_A_DAY;
-    QString strQuery= QString("SELECT * FROM user WHERE validity_end > ")
-                + QString::number(mCurEpoch)
-                + QString(" AND last_visit < ")
-                + QString::number(mCurEpoch - iTemp)
-                + QString(" ORDER BY last_visit DESC;");
-    queryDB(strQuery);
-}
-
-void MainWindow::on_btnBDay_clicked() {
-    QString strTemp     = QDate::currentDate().toString("dd-MM");
-    QString strQuery    = QString("SELECT * FROM user WHERE ddMM = \"") + strTemp + QString("\";");
-    queryDB(strQuery);
+    mpReportQueries = std::make_shared<QueryResponseParser>(pRoot);
+    if(!mpReportQueries->isOk())    updateStatus("No Query Response");
+    else loadQueryWidget();
 }
 
 void MainWindow::on_btnQuery_clicked() {
     QString strQuery    = ui->lnEdtQuery->text();
     if(strQuery.isEmpty()) { updateStatus("Pls Enter a Query"); return; }
+    if(strQuery.contains("dd-") || strQuery.contains("mm-") || strQuery.contains("yyyy"))
+        { updateStatus("Pls enter date/month as suggested"); return; }
     queryDB(strQuery);
 }
 
@@ -96,25 +94,16 @@ void MainWindow::onQueryResponse(QNetworkReply *pReply) {
     disconnect(mpHttpMgr,&QNetworkAccessManager::finished, this, &MainWindow::onQueryResponse);
     ui->tblWdgtReport->setColumnCount(0);
     ui->tblWdgtReport->setRowCount(0);
+    ui->tblWdgtReport->clear();
 
     QString strResp = pReply->readAll();
     json pRoot      = json::parse(strResp.toStdString(), nullptr, false);
     if(pRoot.is_discarded() || !pRoot.value<bool>("isOk", false)) { updateStatus("No Response"); return; }
 
-    QVector<User::Ptr> users;
-    User::Ptr pUser;
-    if(!pRoot.contains("users")) { updateStatus("No Users"); return;}
-    json pRoots = pRoot["users"];
-    if(pRoots.is_array()) for(const auto& root : pRoots) {
-        pUser   = User::parseUser(root);
-        if(pUser) users.push_back(pUser);
-    }
-
-    if(users.size() == 0) updateStatus("No Users");
-    else loadTableWidget(users);
+    QueryResponseParser::Ptr pParser    = std::make_shared<QueryResponseParser>(pRoot);
+    if(!pParser->isOk())    updateStatus("No Query Response");
+    else loadTableWidget(pParser);
 }
-
-
 
 
 // ----------------------------------------------------------
@@ -129,24 +118,53 @@ void MainWindow::on_tblWdgtReport_cellClicked(int row, int column) {
     ui->lblStatus->setText(strText);
 }
 
-void MainWindow::loadTableWidget(const QVector<User::Ptr>& pUsers) {
-    if(pUsers.empty()) return;
+void MainWindow::loadQueryWidget() {
+    if(!mpReportQueries) { updateStatus("No Query Strings"); return; }
 
-    QStringList colHeaders = pUsers[0]->getColumnHeaders();
-    ui->tblWdgtReport->setRowCount(pUsers.size());
-    ui->tblWdgtReport->setColumnCount(colHeaders.size());
+    int32_t noOfRows    = mpReportQueries->getNoOfRows();
+    int32_t noOfCols    = mpReportQueries->getNoOfCols();
+
+    ui->tblWdgtQuery->setRowCount(noOfRows);
+    ui->tblWdgtQuery->setColumnCount(noOfCols);
+
+    QVector<QTableWidgetItem*> pItems = mpReportQueries->getKeysAsWidgetItems();
+    QTableWidgetItem* pItem = nullptr;
+    for(int32_t iRow        = 0; iRow < noOfRows; iRow++) {
+        for(int32_t iCol    = 0; iCol < noOfCols; iCol++) {
+            int32_t iPos    = (iRow * noOfCols) + iCol;
+            pItem           = pItems[iPos];
+            ui->tblWdgtQuery->setItem(iRow, iCol, pItem);
+            ui->tblWdgtQuery->setColumnWidth(iCol, 250);
+        }
+    }
+}
+
+void MainWindow::on_tblWdgtQuery_cellClicked(int row, int column) {
+    QString strVal  = mpReportQueries->getQueryValue(row, column);
+    ui->lnEdtQuery->setText(strVal);
+}
+
+void MainWindow::loadTableWidget(QueryResponseParser::Ptr pParser) {
+    if(!pParser) return;
+
+    QStringList colHeaders          = pParser->getColumnNames();
+    QVector<QTableWidgetItem*> pRows= pParser->getFieldsAsWidgetItems();
+
+    int32_t noOfRows    = pRows.size() / colHeaders.size();
+    int32_t noOfCols    = colHeaders.size();
+    ui->tblWdgtReport->setRowCount(noOfRows);
+    ui->tblWdgtReport->setColumnCount(noOfCols);
 
     //  make sure row count and column count are set before setting headers
     ui->tblWdgtReport->setHorizontalHeaderLabels(colHeaders);
 
-    uint32_t iRow = 0;
-    for(const auto& pUser : pUsers) {
-        uint32_t iCol = 0;
-        const auto& pItemWidgets = pUser->getAllFieldsAsWidgetItems();
-        for(auto pItemWidget : pItemWidgets) {
-            ui->tblWdgtReport->setItem(iRow, iCol++, pItemWidget);
+    QTableWidgetItem *pItem = nullptr;
+    for(int32_t iRow        = 0; iRow < noOfRows; iRow++) {
+        for(int32_t iCol    = 0; iCol < noOfCols; iCol++) {
+            int32_t iPos    = (iRow * noOfCols) + iCol;
+            pItem           = pRows[iPos];
+            ui->tblWdgtReport->setItem(iRow, iCol, pItem);
         }
-        iRow++;
     }
 }
 
@@ -180,7 +198,7 @@ void MainWindow::setPhoto(QString pPhotoFile) {
     if(!checkFile.exists() || !checkFile.isFile()) pPhotoFile = "logo_01.jpg";
 
     QPixmap userImage(mImagesDir + pPhotoFile);
-    ui->lblLogo->setPixmap(userImage.scaled(300,300));
+    ui->lblLogo->setPixmap(userImage.scaled(150,150));
     ui->lblLogo->setAlignment(Qt::AlignmentFlag::AlignCenter);
 }
 

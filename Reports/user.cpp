@@ -1,9 +1,9 @@
 //sgn
 #include <QStringList>
 #include "user.h"
-#include "json.hpp"
+#include "nlohmann_json.hpp"
 
-using namespace nlohmann;
+using json = nlohmann::ordered_json;
 
 User::Ptr User::parseUser(const QString& pUserJson) {
     if(pUserJson.isEmpty()) return nullptr;
