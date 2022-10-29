@@ -79,6 +79,7 @@ void MainWindow::on_btnQuery_clicked() {
     if(strQuery.contains("dd-") || strQuery.contains("mm-") || strQuery.contains("yyyy"))
         { updateStatus("Pls enter date/month as suggested"); return; }
     queryDB(strQuery);
+    setPhoto("logo_01.jpg");
 }
 
 void MainWindow::queryDB(QString pSQL) {
@@ -116,6 +117,14 @@ void MainWindow::on_tblWdgtReport_cellClicked(int row, int column) {
 
     if(strText.length() == 10 && strText.toLongLong() != 0) strText = strText.insert(5, ' ');
     ui->lblStatus->setText(strText);
+
+    //  Set the photograph
+    {
+        pItem           = ui->tblWdgtReport->item(row, 0);
+        strText         = pItem->text();
+        QString strPhoto= getPhoto(strText.toInt());
+        setPhoto(strPhoto);
+    }
 }
 
 void MainWindow::loadQueryWidget() {
@@ -142,6 +151,7 @@ void MainWindow::loadQueryWidget() {
 void MainWindow::on_tblWdgtQuery_cellClicked(int row, int column) {
     QString strVal  = mpReportQueries->getQueryValue(row, column);
     ui->lnEdtQuery->setText(strVal);
+    setPhoto("logo_01.jpg");
 }
 
 void MainWindow::loadTableWidget(QueryResponseParser::Ptr pParser) {
