@@ -102,10 +102,14 @@ class DBInterface {
     const std::string mRENEWALS         = "GET RENEWALS";
     const std::string mLONG_ABSENTEES   = "GET MEMBERS WHO DID NOT COME AFTER";
 
+    const std::string mALL_MEMBERS		= "GET ALL MEMBERS";
+    const std::string mACTIVE_MEMBERS	= "GET ACTIVE MEMBERS";
+
     json generateAttendanceRport(const std::string& strQuery);
     json generateBDayListReport();
     json getRenewalsReport();
     json getLongAbsenteesReport(const std::string& pDate);
+    json getUsersForReport(const std::string& pQuery);
     void packReportQueries();
 
     std::string removeAllSpaces(const std::string& pUserString) {
@@ -137,7 +141,7 @@ public:
     Fees::Ptr				getLastPayDetails(int32_t pMembershipNo);
 	std::string				executeUserSelectQuery(const std::string& pQuery);
     std::vector<User::Ptr>	executeSelectQuery(const std::string& pQuery);
-	boo                     executeUpdateQuery(const std::string& pQuery);
+	bool                    executeUpdateQuery(const std::string& pQuery);
 	const json&             getReportQueryStrings() { return mReportQueries; }
 
     bool					markAttendance(int32_t pMembershipNo);

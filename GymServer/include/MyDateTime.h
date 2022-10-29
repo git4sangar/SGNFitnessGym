@@ -1,6 +1,7 @@
 //sgn
 #pragma once
 #include <iostream>
+#include <sstream>
 #include <ctime>
 #include <memory>
 
@@ -83,6 +84,20 @@ public:
         strftime(buffer, 64, "%H:%M:%S", localtime(&tmTime));
         return std::string(buffer);
     }
+
+	static std::string getTimeStr(int32_t secs) {
+		std::stringstream sstr;
+		int32_t hh, mm, ss;
+
+		hh	= secs / 3600;
+		ss	= secs % 3600;
+		mm	= ss / 60;
+		ss	= ss % 60;
+		sstr	<< std::setfill('0') << std::setw(2) << hh << ":"
+				<< std::setfill('0') << std::setw(2) << mm << ":"
+				<< std::setfill('0') << std::setw(2) << ss;
+		return sstr.str();
+	}
 
     static Ptr createSOD(int yyyy, int mon, int day) {
         return create(yyyy, mon, day, 4, 0, 0);

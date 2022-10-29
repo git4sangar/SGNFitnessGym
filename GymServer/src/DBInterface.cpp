@@ -29,6 +29,12 @@ void DBInterface::packReportQueries() {
     pRoot["Attendance on Day"]      = mCAME_ON + "     dd-mm-yyyy";
     pRoot["Attendance for Month"]   = mCAME_ON + "     mm-yyyy";
     mReportQueries.push_back(pRoot);
+
+    //  Second set of 7 elements
+    pRoot = json();
+    pRoot["List all Members"]		= mALL_MEMBERS;
+    pRoot["List active Members"]	= mACTIVE_MEMBERS;
+    mReportQueries.push_back(pRoot);
 }
 
 User::Ptr DBInterface::getUser(int32_t pMembershipNo) {
@@ -215,7 +221,7 @@ json DBInterface::generateAttendanceRport(const std::string& strQuery) {
 		row["Date"]     = pAttendance->mInDateString.length() != MyDateTime::DATE_TIME_LENGTH ? "-" : pAttendance->mInDateString.substr(0,10);
 		row["In Time"]	= pAttendance->mInDateString.length() != MyDateTime::DATE_TIME_LENGTH ? "-" : pAttendance->mInDateString.substr(11,5);
 		row["Out Time"]	= pAttendance->mOutDateString.length()!= MyDateTime::DATE_TIME_LENGTH ? "-" : pAttendance->mOutDateString.substr(11,5);
-		row["Duration"]	= pAttendance->mDuration;
+		row["Duration"]	= MyDateTime::getTimeStr(pAttendance->mDuration);
 		row["Expiry"]	= std::make_shared<MyDateTime>(pUser->mValidityEnd)->getDateStr();
 		rows.push_back(row);
 	}
@@ -245,15 +251,11 @@ json DBInterface::generateBDayListReport() {
     return rows;
 }
 
-json DBInterface::getRenewalsReport() {
-    std::stringstream ss;
-
-    MyDateTime::Ptr pDateTime	= std::make_shared<MyDateTime>();
-    ss.str(""); ss  << "SELECT * FROM user WHERE validity_end < "
-                    << pDateTime->getEpoch() - SECS_IN_A_DAY
-                    << " ORDER BY validity_end DESC;";
+json DBInterface::getUsersForReport(const std::string& pQuery) {
     json rows = json::array();
-    SQLite::Statement query(*mDB, ss.str());
+	if(pQuery.empty()) return rows;
+
+    SQLite::Statement query(*mDB, pQuery);
     while(query.executeStep()) {
         User::Ptr pUser	= User::parseUser(&query);
         if(!pUser) continue;
@@ -270,6 +272,16 @@ json DBInterface::getRenewalsReport() {
     return rows;
 }
 
+json DBInterface::getRenewalsReport() {
+    std::stringstream ss;
+
+    MyDateTime::Ptr pDateTime	= std::make_shared<MyDateTime>();
+    ss.str(""); ss  << "SELECT * FROM user WHERE validity_end < "
+                    << pDateTime->getEpoch() - SECS_IN_A_DAY
+                    << " ORDER BY validity_end DESC;";
+    return getUsersForReport(ss.str());
+}
+
 json DBInterface::getLongAbsenteesReport(const std::string& pDate) {
     if(pDate.empty()) return json();
     std::stringstream ss;
@@ -277,22 +289,7 @@ json DBInterface::getLongAbsenteesReport(const std::string& pDate) {
     MyDateTime::Ptr pDateTime = MyDateTime::create(pDate, "dd-MM-yyyy");
     if(!pDateTime) return json();
     ss.str(""); ss << "SELECT * FROM user WHERE last_visit < " << pDateTime->getEpoch() << ";";
-    json rows = json::array();
-    SQLite::Statement query(*mDB, ss.str());
-    while(query.executeStep()) {
-        User::Ptr pUser	= User::parseUser(&query);
-        if(!pUser) continue;
-
-        json row;
-        row["User No"]      = pUser->mMembershipNo;
-        row["Name"]         = pUser->mName;
-        row["Mobile"]       = std::to_string(pUser->mMobile);
-        row["Expiry"]       = std::make_shared<MyDateTime>(pUser->mValidityEnd)->getDateStr();
-        row["Last Visit"]   = std::make_shared<MyDateTime>(pUser->mLastVisit)->getDateStr();
-        row["In Time"]      = std::make_shared<MyDateTime>(pUser->mLastVisit)->getTimeStr();
-        rows.push_back(row);
-    }
-    return rows;
+    return getUsersForReport(ss.str());
 }
 
 std::string DBInterface::executeUserSelectQuery(const std::string& pQuery) {
@@ -309,24 +306,24 @@ std::string DBInterface::executeUserSelectQuery(const std::string& pQuery) {
 
         if(strTemp == lowerNoSpace(mCAME_TODAY)) {
             pDateTime	= std::make_shared<MyDateTime>(); bFlag = true;
-            ss.str(""); ss << "SELECT * FROM attendance WHERE SUBSTR(in_date_string, 1, 10) = \"" << pDateTime->getDateStr() << "\";";
+            ss.str(""); ss << "SELECT * FROM attendance WHERE SUBSTR(in_date_string, 1, 10) = \"" << pDateTime->getDateStr() << "\" ORDER BY in_time DESC;";
 
         } else if(strTemp == lowerNoSpace(mCAME_YESTERDAY)) {
             pDateTime	= std::make_shared<MyDateTime>(); bFlag = true;
             tmTemp		= pDateTime->getEpoch() - SECS_IN_A_DAY; 
             pDateTime	= std::make_shared<MyDateTime>(tmTemp);
-            ss.str(""); ss << "SELECT * FROM attendance WHERE SUBSTR(in_date_string, 1, 10) = \"" << pDateTime->getDateStr() << "\";";
+            ss.str(""); ss << "SELECT * FROM attendance WHERE SUBSTR(in_date_string, 1, 10) = \"" << pDateTime->getDateStr() << "\" ORDER BY in_time DESC;";
 
         } else if(strTemp.find(lowerNoSpace(mCAME_ON)) != std::string::npos) {
             strTemp.erase(0, lowerNoSpace(mCAME_ON).length());
             if(strTemp.length() == 10) {
                 pDateTime	= MyDateTime::create(strTemp, "dd-MM-yyyy"); bFlag = true;
-                ss.str(""); ss << "SELECT * FROM attendance WHERE SUBSTR(in_date_string, 1, 10) = \"" << pDateTime->getDateStr() << "\";";
+                ss.str(""); ss << "SELECT * FROM attendance WHERE SUBSTR(in_date_string, 1, 10) = \"" << pDateTime->getDateStr() << "\" ORDER BY in_time DESC;";
 
             } else if(strTemp.length() == 7) {
                 bFlag = true;
                 strTemp[2] = '-';   // 10-2022
-                ss.str(""); ss << "SELECT * FROM attendance WHERE SUBSTR(in_date_string, 4, 7) = \"" << strTemp << "\";";
+                ss.str(""); ss << "SELECT * FROM attendance WHERE SUBSTR(in_date_string, 4, 7) = \"" << strTemp << "\" ORDER BY in_time DESC;";
             }
         }
 
@@ -350,6 +347,16 @@ std::string DBInterface::executeUserSelectQuery(const std::string& pQuery) {
             pRoot["rows"]   = getLongAbsenteesReport(strTemp);
             return pRoot.dump();
         }
+    } else if(strTemp == lowerNoSpace(mALL_MEMBERS)) {
+        pRoot["isOk"]   = true;
+        pRoot["rows"]	= getUsersForReport("SELECT * FROM user;");
+        return pRoot.dump();
+    } else if(strTemp == lowerNoSpace(mACTIVE_MEMBERS)) {
+        tmTemp			= time(NULL) - (30 * SECS_IN_A_DAY);
+        ss.str(""); ss << "SELECT * FROM user WHERE last_visit > " << tmTemp << ";";
+        pRoot["isOk"]   = true;
+        pRoot["rows"]   = getUsersForReport(ss.str());
+        return pRoot.dump();
     }
 
 	return std::string();
