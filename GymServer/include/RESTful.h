@@ -22,6 +22,7 @@ public:
 
     RESTful(uint32_t pPort, DBInterface::Ptr pDBInterface)
     : mpDBInterface(pDBInterface)
+//    , mEndPoint(std::make_shared<Pistache::Http::Endpoint>(Pistache::Address("192.168.83.129", pPort)))
     , mEndPoint(std::make_shared<Pistache::Http::Endpoint>(Pistache::Address("142.93.216.207", pPort)))
     , mLogger(Logger::getInstance())
     {}
@@ -41,6 +42,7 @@ private:
     void getLastPayment(const PistacheReq &request, PistacheResp response);
     void getEpochTime(const PistacheReq &request, PistacheResp response);
     void executeSelectQuery(const PistacheReq &request, PistacheResp response);
+    void getReportQueries(const PistacheReq &request, PistacheResp response);
     std::string packResponse(bool isSuccess, const std::string& pPkt);
     //std::string packResponse(bool isSuccess, nlohmann::json& pPkt);
 

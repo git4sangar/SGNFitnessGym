@@ -55,6 +55,7 @@ int main() {
         return -1;
     }
 
+//    DBInterface::Ptr pDBInterface = DBInterface::Ptr(DBInterface::getInstance("/home/tstone10/sgn/proj/SGNFitnessGym/GymServer/sgndb.db"));
     DBInterface::Ptr pDBInterface = DBInterface::Ptr(DBInterface::getInstance("/home/sgn/sgn/projs/SGNFitnessGym/GymServer/sgndb.db"));
 
 	std::thread watchDogThread(petWatchDog);

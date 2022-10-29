@@ -12,6 +12,25 @@ using json = nlohmann::ordered_json;
 
 DBInterface* DBInterface::pThis = nullptr;
 
+//  Packing shall happen only at the time of construction.
+void DBInterface::packReportQueries() {
+    mReportQueries  = json::array();
+
+    //  Array of 7 elements each
+    json pRoot;
+
+    //  First set of 7 elements
+    pRoot = json();
+    pRoot["Birthday List"]          = mBDAY_LIST;
+    pRoot["Renewals"]               = mRENEWALS;
+    pRoot["Long Absentees"]         = mLONG_ABSENTEES + "     dd-mm-yyyy";
+    pRoot["Attendance Today"]       = mCAME_TODAY;
+    pRoot["Attendance Yesterday"]   = mCAME_YESTERDAY;
+    pRoot["Attendance on Day"]      = mCAME_ON + "     dd-mm-yyyy";
+    pRoot["Attendance for Month"]   = mCAME_ON + "     mm-yyyy";
+    mReportQueries.push_back(pRoot);
+}
+
 User::Ptr DBInterface::getUser(int32_t pMembershipNo) {
     if(pMembershipNo <= 0) return nullptr;
 
@@ -179,7 +198,7 @@ bool DBInterface::updateUserValidity(int32_t pMembershipNo, time_t pValidity) {
     return true;
 }
 
-json DBInterface::parseAttendanceReport(const std::string& strQuery) {
+json DBInterface::generateAttendanceRport(const std::string& strQuery) {
 	if(strQuery.empty()) return json::array();
 
 	json rows = json::array();
@@ -192,6 +211,7 @@ json DBInterface::parseAttendanceReport(const std::string& strQuery) {
 		User::Ptr pUser	= getUser(pAttendance->mMembershipNo);
 		row["User No"]	= pAttendance->mMembershipNo;
 		row["Name"]     = pUser->mName;
+		row["Mobile"]   = std::to_string(pUser->mMobile);
 		row["Date"]     = pAttendance->mInDateString.length() != MyDateTime::DATE_TIME_LENGTH ? "-" : pAttendance->mInDateString.substr(0,10);
 		row["In Time"]	= pAttendance->mInDateString.length() != MyDateTime::DATE_TIME_LENGTH ? "-" : pAttendance->mInDateString.substr(11,5);
 		row["Out Time"]	= pAttendance->mOutDateString.length()!= MyDateTime::DATE_TIME_LENGTH ? "-" : pAttendance->mOutDateString.substr(11,5);
@@ -202,34 +222,135 @@ json DBInterface::parseAttendanceReport(const std::string& strQuery) {
 	return rows;
 }
 
-std::string DBInterface::executeUserSelectQuery(const std::string& pQuery) {
-	std::string strTemp, strQuery;
-	time_t tmTemp = 0;
-	strQuery = pQuery;
+json DBInterface::generateBDayListReport() {
+    std::stringstream ss;
 
-	std::transform(strQuery.begin(), strQuery.end(), strQuery.begin(), ::tolower);
-	for(const auto& ch : strQuery) if(ch != ' ' && ch != '\t') strTemp += ch;
+    MyDateTime::Ptr pDateTime	= std::make_shared<MyDateTime>();
+    ss.str(""); ss << "SELECT * FROM user WHERE ddMM = \"" << pDateTime->getBDayStr() << "\";";
+
+    json rows = json::array();
+    SQLite::Statement query(*mDB, ss.str());
+    while(query.executeStep()) {
+        User::Ptr pUser	= User::parseUser(&query);
+        if(!pUser) continue;
+
+        json row;
+        row["User No"]      = pUser->mMembershipNo;
+        row["Name"]         = pUser->mName;
+        row["Birthday"]     = std::make_shared<MyDateTime>(pUser->mDOB)->getDateStr();
+        row["Mobile"]       = std::to_string(pUser->mMobile);
+        row["Expiry"]       = std::make_shared<MyDateTime>(pUser->mValidityEnd)->getDateStr();
+        rows.push_back(row);
+    }
+    return rows;
+}
+
+json DBInterface::getRenewalsReport() {
+    std::stringstream ss;
+
+    MyDateTime::Ptr pDateTime	= std::make_shared<MyDateTime>();
+    ss.str(""); ss  << "SELECT * FROM user WHERE validity_end < "
+                    << pDateTime->getEpoch() - SECS_IN_A_DAY
+                    << " ORDER BY validity_end DESC;";
+    json rows = json::array();
+    SQLite::Statement query(*mDB, ss.str());
+    while(query.executeStep()) {
+        User::Ptr pUser	= User::parseUser(&query);
+        if(!pUser) continue;
+
+        json row;
+        row["User No"]      = pUser->mMembershipNo;
+        row["Name"]         = pUser->mName;
+        row["Mobile"]       = std::to_string(pUser->mMobile);
+        row["Expiry"]       = std::make_shared<MyDateTime>(pUser->mValidityEnd)->getDateStr();
+        row["Last Visit"]   = std::make_shared<MyDateTime>(pUser->mLastVisit)->getDateStr();
+        row["In Time"]      = std::make_shared<MyDateTime>(pUser->mLastVisit)->getTimeStr();
+        rows.push_back(row);
+    }
+    return rows;
+}
+
+json DBInterface::getLongAbsenteesReport(const std::string& pDate) {
+    if(pDate.empty()) return json();
+    std::stringstream ss;
+
+    MyDateTime::Ptr pDateTime = MyDateTime::create(pDate, "dd-MM-yyyy");
+    if(!pDateTime) return json();
+    ss.str(""); ss << "SELECT * FROM user WHERE last_visit < " << pDateTime->getEpoch() << ";";
+    json rows = json::array();
+    SQLite::Statement query(*mDB, ss.str());
+    while(query.executeStep()) {
+        User::Ptr pUser	= User::parseUser(&query);
+        if(!pUser) continue;
+
+        json row;
+        row["User No"]      = pUser->mMembershipNo;
+        row["Name"]         = pUser->mName;
+        row["Mobile"]       = std::to_string(pUser->mMobile);
+        row["Expiry"]       = std::make_shared<MyDateTime>(pUser->mValidityEnd)->getDateStr();
+        row["Last Visit"]   = std::make_shared<MyDateTime>(pUser->mLastVisit)->getDateStr();
+        row["In Time"]      = std::make_shared<MyDateTime>(pUser->mLastVisit)->getTimeStr();
+        rows.push_back(row);
+    }
+    return rows;
+}
+
+std::string DBInterface::executeUserSelectQuery(const std::string& pQuery) {
+    std::string strTemp, strQuery;
+    std::stringstream ss;
+    time_t tmTemp = 0;
+    bool bFlag = false;
+    json pRoot;
+
+    strTemp = lowerNoSpace(pQuery);
 
 	MyDateTime::Ptr pDateTime;
-	if(strTemp == "getmemberscametoday") {
-		pDateTime	= std::make_shared<MyDateTime>();
-	} else if(strTemp == "getmemberscameyesterday") {
-		pDateTime	= std::make_shared<MyDateTime>();
-		tmTemp		= pDateTime->getEpoch() - SECS_IN_A_DAY; 
-		pDateTime	= std::make_shared<MyDateTime>(tmTemp);
-	} else if(strTemp.find("getmemberscameon") != std::string::npos) {
-		std::string dateStr	= strQuery.substr(strQuery.length() - 10);
-		pDateTime	= MyDateTime::create(dateStr, "dd-MM-yyyy");
-	}
+    if(strTemp.find(lowerNoSpace(mMEMBERS_CAME)) != std::string::npos) {
 
-	if(pDateTime) {
-		json pRoot;
-		std::stringstream ss;
-		ss.str(""); ss << "SELECT * FROM Attendance WHERE SUBSTR(in_date_string, 1, 10) = \"" << pDateTime->getDateStr() << "\";";
-		pRoot["isOk"]	= true;
-		pRoot["rows"]	= parseAttendanceReport(ss.str());
-		return pRoot.dump();
-	}
+        if(strTemp == lowerNoSpace(mCAME_TODAY)) {
+            pDateTime	= std::make_shared<MyDateTime>(); bFlag = true;
+            ss.str(""); ss << "SELECT * FROM attendance WHERE SUBSTR(in_date_string, 1, 10) = \"" << pDateTime->getDateStr() << "\";";
+
+        } else if(strTemp == lowerNoSpace(mCAME_YESTERDAY)) {
+            pDateTime	= std::make_shared<MyDateTime>(); bFlag = true;
+            tmTemp		= pDateTime->getEpoch() - SECS_IN_A_DAY; 
+            pDateTime	= std::make_shared<MyDateTime>(tmTemp);
+            ss.str(""); ss << "SELECT * FROM attendance WHERE SUBSTR(in_date_string, 1, 10) = \"" << pDateTime->getDateStr() << "\";";
+
+        } else if(strTemp.find(lowerNoSpace(mCAME_ON)) != std::string::npos) {
+            strTemp.erase(0, lowerNoSpace(mCAME_ON).length());
+            if(strTemp.length() == 10) {
+                pDateTime	= MyDateTime::create(strTemp, "dd-MM-yyyy"); bFlag = true;
+                ss.str(""); ss << "SELECT * FROM attendance WHERE SUBSTR(in_date_string, 1, 10) = \"" << pDateTime->getDateStr() << "\";";
+
+            } else if(strTemp.length() == 7) {
+                bFlag = true;
+                strTemp[2] = '-';   // 10-2022
+                ss.str(""); ss << "SELECT * FROM attendance WHERE SUBSTR(in_date_string, 4, 7) = \"" << strTemp << "\";";
+            }
+        }
+
+        if(bFlag) {
+            pRoot["isOk"]	= true;
+            pRoot["rows"]	= generateAttendanceRport(ss.str());
+            return pRoot.dump();
+        }
+    } else if(strTemp == lowerNoSpace(mBDAY_LIST)) {
+        pRoot["isOk"]   = true;
+        pRoot["rows"]	= generateBDayListReport();
+        return pRoot.dump();
+    } else if(strTemp == lowerNoSpace(mRENEWALS)) {
+        pRoot["isOk"]   = true;
+        pRoot["rows"]   = getRenewalsReport();
+        return pRoot.dump();
+    } else if(strTemp.find(lowerNoSpace(mLONG_ABSENTEES)) != std::string::npos) {
+        strTemp.erase(0, lowerNoSpace(mLONG_ABSENTEES).length());
+        if(strTemp.length() == 10) {
+            pRoot["isOk"]   = true;
+            pRoot["rows"]   = getLongAbsenteesReport(strTemp);
+            return pRoot.dump();
+        }
+    }
 
 	return std::string();
 }

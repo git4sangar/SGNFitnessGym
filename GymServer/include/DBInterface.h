@@ -86,13 +86,39 @@ struct Fees {
 class DBInterface {
     DBInterface(std::string pDBFileName) : mLogger(Logger::getInstance()) {
         mDB = std::make_shared<SQLite::Database>(pDBFileName, SQLite::OPEN_READWRITE);
+        packReportQueries();
     }
 
     std::shared_ptr<SQLite::Database> mDB;
     Logger& mLogger;
+    json mReportQueries;
     static DBInterface* pThis;
 
-	json 					parseAttendanceReport(const std::string& strQuery);
+    const std::string mMEMBERS_CAME     = "GET MEMBERS CAME";
+    const std::string mCAME_TODAY       = "GET MEMBERS CAME TODAY";
+    const std::string mCAME_YESTERDAY   = "GET MEMBERS CAME YESTERDAY";
+    const std::string mCAME_ON          = "GET MEMBERS CAME ON";
+    const std::string mBDAY_LIST        = "GET BIRTHDAY LIST";
+    const std::string mRENEWALS         = "GET RENEWALS";
+    const std::string mLONG_ABSENTEES   = "GET MEMBERS WHO DID NOT COME AFTER";
+
+    json generateAttendanceRport(const std::string& strQuery);
+    json generateBDayListReport();
+    json getRenewalsReport();
+    json getLongAbsenteesReport(const std::string& pDate);
+    void packReportQueries();
+
+    std::string removeAllSpaces(const std::string& pUserString) {
+        std::string strTemp;
+        for(const auto& ch : pUserString) if(ch != ' ' && ch != '\t') strTemp += ch;
+        return strTemp;
+    }
+    std::string makeAllLower(const std::string& pString) {
+        std::string strTemp = pString;
+        std::transform(strTemp.begin(), strTemp.end(), strTemp.begin(), ::tolower);
+        return strTemp;
+    }
+    std::string lowerNoSpace(const std::string& pString) { return removeAllSpaces(makeAllLower(pString)); }
 public:
     typedef std::shared_ptr<DBInterface> Ptr;
     static DBInterface *getInstance( std::string pFileName = "")
@@ -111,7 +137,8 @@ public:
     Fees::Ptr				getLastPayDetails(int32_t pMembershipNo);
 	std::string				executeUserSelectQuery(const std::string& pQuery);
     std::vector<User::Ptr>	executeSelectQuery(const std::string& pQuery);
-	bool					executeUpdateQuery(const std::string& pQuery);
+	boo                     executeUpdateQuery(const std::string& pQuery);
+	const json&             getReportQueryStrings() { return mReportQueries; }
 
     bool					markAttendance(int32_t pMembershipNo);
     Attendance::Ptr			getAttendance(uint32_t pMembershipNo);
