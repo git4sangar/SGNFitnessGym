@@ -16,7 +16,7 @@
 #include "DBInterface.h"
 #include "MyDateTime.h"
 
-#define BIN_FILE_PATH "/home/sgn/sgn/projs/gym/bin/SGNAttendanceBot"
+#define BIN_FILE_PATH "/home/sgn/sgn/projs/SGNFitnessGym/GymServer/bin/SGNAttendanceBot"
 #define MYPORT (60000)
 
 void petWatchDog() {
@@ -55,7 +55,8 @@ int main() {
         return -1;
     }
 
-    DBInterface::Ptr pDBInterface = DBInterface::Ptr(DBInterface::getInstance("/home/sgn/sgn/projs/gym/sgndb.db"));
+//    DBInterface::Ptr pDBInterface = DBInterface::Ptr(DBInterface::getInstance("/home/tstone10/sgn/proj/SGNFitnessGym/GymServer/sgndb.db"));
+    DBInterface::Ptr pDBInterface = DBInterface::Ptr(DBInterface::getInstance("/home/sgn/sgn/projs/SGNFitnessGym/GymServer/sgndb.db"));
 
 	std::thread watchDogThread(petWatchDog);
 	

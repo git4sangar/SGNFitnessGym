@@ -3,16 +3,17 @@
 #include <iostream>
 #include <exception>
 
-#include <nlohmann/json.hpp>
+#include "nlohmann_json.hpp"
 #include "RESTful.h"
 
-using json = nlohmann::json;
+using json = nlohmann::ordered_json;
 
 void RESTful::configureRoutes()
 {
     Pistache::Rest::Routes::Get(mRouter, "/user/:id", Pistache::Rest::Routes::bind(&RESTful::getUser, this));
     Pistache::Rest::Routes::Get(mRouter, "/lastpayment/:id", Pistache::Rest::Routes::bind(&RESTful::getLastPayment, this));
     Pistache::Rest::Routes::Get(mRouter, "/epoch", Pistache::Rest::Routes::bind(&RESTful::getEpochTime, this));
+    Pistache::Rest::Routes::Get(mRouter, "/getreportqueries", Pistache::Rest::Routes::bind(&RESTful::getReportQueries, this));
     Pistache::Rest::Routes::Post(mRouter, "/getuser", Pistache::Rest::Routes::bind(&RESTful::getUserByField, this));
     Pistache::Rest::Routes::Get(mRouter, "/newmemberno", Pistache::Rest::Routes::bind(&RESTful::getNewMembershipNo, this));
     Pistache::Rest::Routes::Post(mRouter, "/newuser", Pistache::Rest::Routes::bind(&RESTful::addNewUser, this));
@@ -27,6 +28,14 @@ void RESTful::getEpochTime(const PistacheReq &request, PistacheResp response) {
 	mLogger << "Got a request for epoch" << std::endl;
 	json pRoot;
 	pRoot["epoch"] = time(0);
+	response.send(Pistache::Http::Code::Ok, packResponse(true, pRoot.dump()), MIME(Application, Json));
+}
+
+void RESTful::getReportQueries(const PistacheReq &request, PistacheResp response) {
+	mLogger << "Got a request for report query strings" << std::endl;
+	json pRoot;
+	pRoot["isOk"]   = true;
+	pRoot["rows"]   = mpDBInterface->getReportQueryStrings();
 	response.send(Pistache::Http::Code::Ok, packResponse(true, pRoot.dump()), MIME(Application, Json));
 }
 
@@ -154,18 +163,12 @@ void RESTful::executeSelectQuery(const PistacheReq &request, PistacheResp respon
 		response.send(Pistache::Http::Code::Not_Found, packResponse(false, "Blank Query"), MIME(Application, Json));
 		return;
 	}
-	std::vector<User::Ptr> users	= mpDBInterface->executeSelectQuery(strQuery);
-	if(users.size() == 0)  {
-		response.send(Pistache::Http::Code::Not_Found, packResponse(false, "No results"), MIME(Application, Json));
-		return;
+	std::string strQueryResp	= mpDBInterface->executeUserSelectQuery(strQuery);
+	if(!strQueryResp.empty()) {
+		response.send(Pistache::Http::Code::Ok, strQueryResp, MIME(Application, Json));
+	} else {
+		response.send(Pistache::Http::Code::Ok, packResponse(false, "Invalid Query"), MIME(Application, Json));
 	}
-
-	json pRoots	= json::array();
-	json pRoot;
-	for(auto pUser : users) pRoots.push_back(pUser->toJsonObj());
-	pRoot["isOk"]	= true;
-	pRoot["users"]	= pRoots;
-	response.send(Pistache::Http::Code::Ok, pRoot.dump(), MIME(Application, Json));
 }
 
 void RESTful::addOrUpdateFee(const PistacheReq &request, PistacheResp response) {
