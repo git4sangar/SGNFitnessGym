@@ -23,4 +23,3 @@ target_link_libraries(SGNAttendance
     SQLiteCpp
     -lpthread
     -lpistache)
-add_subdirectory(SQLiteCpp)

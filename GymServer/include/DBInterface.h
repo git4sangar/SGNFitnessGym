@@ -137,7 +137,7 @@ public:
     Fees::Ptr				getLastPayDetails(int32_t pMembershipNo);
 	std::string				executeUserSelectQuery(const std::string& pQuery);
     std::vector<User::Ptr>	executeSelectQuery(const std::string& pQuery);
-	boo                     executeUpdateQuery(const std::string& pQuery);
+	bool                    executeUpdateQuery(const std::string& pQuery);
 	const json&             getReportQueryStrings() { return mReportQueries; }
 
     bool					markAttendance(int32_t pMembershipNo);
