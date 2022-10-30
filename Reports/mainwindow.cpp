@@ -129,21 +129,24 @@ void MainWindow::on_tblWdgtReport_cellClicked(int row, int column) {
 
 void MainWindow::loadQueryWidget() {
     if(!mpReportQueries) { updateStatus("No Query Strings"); return; }
+    QVector<QTableWidgetItem*> pItems = mpReportQueries->getKeysAsWidgetItems();
+    QTableWidgetItem* pItem = nullptr;
 
+    int32_t totalNos    = (int32_t)pItems.size();
     int32_t noOfRows    = mpReportQueries->getNoOfRows();
     int32_t noOfCols    = mpReportQueries->getNoOfCols();
 
     ui->tblWdgtQuery->setRowCount(noOfRows);
     ui->tblWdgtQuery->setColumnCount(noOfCols);
 
-    QVector<QTableWidgetItem*> pItems = mpReportQueries->getKeysAsWidgetItems();
-    QTableWidgetItem* pItem = nullptr;
     for(int32_t iRow        = 0; iRow < noOfRows; iRow++) {
         for(int32_t iCol    = 0; iCol < noOfCols; iCol++) {
             int32_t iPos    = (iRow * noOfCols) + iCol;
-            pItem           = pItems[iPos];
-            ui->tblWdgtQuery->setItem(iRow, iCol, pItem);
-            ui->tblWdgtQuery->setColumnWidth(iCol, 250);
+            pItem           = (iPos < totalNos) ? pItems[iPos] : nullptr;
+            if(pItem) {
+                ui->tblWdgtQuery->setItem(iRow, iCol, pItem);
+                ui->tblWdgtQuery->setColumnWidth(iCol, 250);
+            }
         }
     }
 }
