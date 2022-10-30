@@ -278,7 +278,7 @@ json DBInterface::getRenewalsReport() {
     MyDateTime::Ptr pDateTime	= std::make_shared<MyDateTime>();
     ss.str(""); ss  << "SELECT * FROM user WHERE validity_end < "
                     << pDateTime->getEpoch() - SECS_IN_A_DAY
-                    << " ORDER BY validity_end DESC;";
+                    << " ORDER BY last_visit DESC;";
     return getUsersForReport(ss.str());
 }
 
