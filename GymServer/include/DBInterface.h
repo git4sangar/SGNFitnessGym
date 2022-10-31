@@ -32,7 +32,7 @@ struct User {
     static User::Ptr    parseUser(std::string pUserJson);
     static User::Ptr    parseUser(SQLite::Statement *pQuery);
 
-    std::string mName, mAddress, mEmail, mPhoto;
+    std::string mName, mAddress, mEmail, mPhoto, mRemarks;
     uint64_t    mMobile;
     int32_t     mId, mMembershipNo;
     time_t      mDOB, mValidityEnd, mLastVisit;
@@ -101,9 +101,13 @@ class DBInterface {
     const std::string mBDAY_LIST        = "GET BIRTHDAY LIST";
     const std::string mRENEWALS         = "GET RENEWALS";
     const std::string mLONG_ABSENTEES   = "GET MEMBERS WHO DID NOT COME AFTER";
-
     const std::string mALL_MEMBERS		= "GET ALL MEMBERS";
     const std::string mACTIVE_MEMBERS	= "GET ACTIVE MEMBERS";
+
+	const std::string mMONTHLY_PACKAGE	= "GET MONTHLY PACKAGERS";
+	const std::string mQUARTERLY_PACKAGE	= "GET QUARTERLY PACKAGERS";
+	const std::string mHALFYEARLY_PACKAGE	= "GET HALFYEARLY PACKAGERS";
+	const std::string mANNUAL_PACKAGE	= "GET ANNUAL PACKAGERS";
 
     json generateAttendanceRport(const std::string& strQuery);
     json generateBDayListReport();
