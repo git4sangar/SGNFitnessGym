@@ -24,10 +24,12 @@ private slots:
     void clearStatus();
     void onEpochResponse(QNetworkReply *pReply);
     void onQueryResponse(QNetworkReply *pReply);
+    void onUpdateResponse(QNetworkReply *pReply);
     void onReportQueries(QNetworkReply *pReply);
     void on_btnQuery_clicked();
     void on_tblWdgtReport_cellClicked(int row, int column);
     void on_tblWdgtQuery_cellClicked(int row, int column);
+    void on_btnUpdate_clicked();
 
 private:
     void    queryDB(QString pSQL);
@@ -44,6 +46,6 @@ private:
     QString                 mImagesDir;
     time_t                  mCurEpoch;
     QStringList             mReportOptions;
-    QueryResponseParser::Ptr mpReportQueries;
+    QueryResponseParser::Ptr mpReportQueries, mpQueryResponse;
 };
 #endif // MAINWINDOW_H

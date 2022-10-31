@@ -80,6 +80,8 @@ void MainWindow::on_btnQuery_clicked() {
         { updateStatus("Pls enter date/month as suggested"); return; }
     queryDB(strQuery);
     setPhoto("logo_01.jpg");
+    if(mpQueryResponse) mpQueryResponse->mCurRow = -1;
+    if(mpQueryResponse) mpQueryResponse->mCurCol = -1;
 }
 
 void MainWindow::queryDB(QString pSQL) {
@@ -101,11 +103,40 @@ void MainWindow::onQueryResponse(QNetworkReply *pReply) {
     json pRoot      = json::parse(strResp.toStdString(), nullptr, false);
     if(pRoot.is_discarded() || !pRoot.value<bool>("isOk", false)) { updateStatus("No Response"); return; }
 
-    QueryResponseParser::Ptr pParser    = std::make_shared<QueryResponseParser>(pRoot);
-    if(!pParser->isOk())    updateStatus("No Query Response");
-    else loadTableWidget(pParser);
+    mpQueryResponse = std::make_shared<QueryResponseParser>(pRoot);
+    if(!mpQueryResponse->isOk())    updateStatus("No Query Response");
+    else loadTableWidget(mpQueryResponse);
 }
 
+void MainWindow::on_btnUpdate_clicked() {
+    QString strRemarks  = ui->txtEdtRemarks->toPlainText();
+
+    if(!mpQueryResponse || mpQueryResponse->mCurRow == -1) {
+        updateStatus("Pls select a row");
+        return;
+    }
+
+    if(strRemarks.isEmpty()) strRemarks = "-";
+    QTableWidgetItem *pItem = ui->tblWdgtReport->item(mpQueryResponse->mCurRow, 0);
+    QString strMembershipNo = pItem->text();
+    QString strQuery        = "UPDATE user SET remarks = \"" + strRemarks +
+                                "\" WHERE membership_no = " + strMembershipNo + ";";
+
+    QNetworkRequest request;
+    QString strUrl= QString("http://142.93.216.207:8080/updatequery");
+    request.setUrl(QUrl(strUrl));
+    connect(mpHttpMgr,&QNetworkAccessManager::finished, this, &MainWindow::onUpdateResponse);
+    mpHttpMgr->put(request, strQuery.toUtf8());
+}
+
+void MainWindow::onUpdateResponse(QNetworkReply *pReply) {
+    disconnect(mpHttpMgr,&QNetworkAccessManager::finished, this, &MainWindow::onUpdateResponse);
+
+    QString strResp = pReply->readAll();
+    json pRoot      = json::parse(strResp.toStdString(), nullptr, false);
+    if(pRoot.is_discarded() || !pRoot.value<bool>("isOk", false)) { updateStatus("Error Updating"); return; }
+    else updateStatus("Updated Successfully");
+}
 
 // ----------------------------------------------------------
 //                   Handle UI Changes
@@ -116,7 +147,15 @@ void MainWindow::on_tblWdgtReport_cellClicked(int row, int column) {
     QString strText         = pItem->text();
 
     if(strText.length() == 10 && strText.toLongLong() != 0) strText = strText.insert(5, ' ');
-    ui->lblStatus->setText(strText);
+    if(strText.size() < 32) ui->lblStatus->setText(strText);
+
+    if(mpQueryResponse) {
+        pItem = ui->tblWdgtReport->item(row, mpQueryResponse->getNoOfCols()-1);
+        ui->txtEdtRemarks->setText(pItem->text());
+
+        mpQueryResponse->mCurRow    = row;
+        mpQueryResponse->mCurCol    = column;
+    }
 
     //  Set the photograph
     {
@@ -231,4 +270,6 @@ void MainWindow::clearStatus() {
     mpStatusTimer->stop();
     ui->lblStatus->clear();
 }
+
+
 

@@ -128,16 +128,6 @@ void MainWindow::onMemberNoResponse(QNetworkReply *pReply) {
     }
 }
 
-/*
- * sgn
-
-Update Validity End for member
-add validity end in spouse
-add spouse no in fees table
-get last fee details for membership no
-delete spouse no on update
-*/
-
 void MainWindow::on_btnSubmit_clicked() {
     json pRoot;
 
@@ -149,10 +139,10 @@ void MainWindow::on_btnSubmit_clicked() {
     else pRoot["spouse_no"]  = ui->lnEdtSpouseNo->text().toInt();
 
     if(ui->lnEdtName->text().isEmpty())   { updateStatus("Pls Enter Name"); return; }
-    pRoot["name"]       = ui->lnEdtName->text().toStdString();
+    pRoot["name"]       = ui->lnEdtName->text().trimmed().toStdString();
 
     if(ui->lnEdtReceiptNo->text().isEmpty())   { updateStatus("Pls Enter Receipt No"); return; }
-    pRoot["receipt_no"] = ui->lnEdtReceiptNo->text().toStdString();
+    pRoot["receipt_no"] = ui->lnEdtReceiptNo->text().trimmed().toStdString();
 
     pRoot["date_paid"]  = ui->dtEdtPayDate->date().toString("dd-MM-yyyy").toStdString();
 
@@ -160,14 +150,15 @@ void MainWindow::on_btnSubmit_clicked() {
     pRoot["amount_paid"] = ui->lnEdtAmtPaid->text().toInt();
 
     if(ui->lnEdtRefNo->text().isEmpty())    pRoot["reference_no"] = ui->lnEdtReceiptNo->text().toStdString();
-    else pRoot["reference_no"] = ui->lnEdtRefNo->text().toStdString();
+    else pRoot["reference_no"] = ui->lnEdtRefNo->text().trimmed().toStdString();
 
     QDate validity              = ui->dtEdtValidity->date();
-    if(validity <= QDate::currentDate()) { updateStatus("Validity cannot be less than today's date"); return; }
-    else pRoot["validity_end"]  = validity.toString("dd-MM-yyyy").toStdString();
+    //if(validity <= QDate::currentDate()) { updateStatus("Validity cannot be less than today's date"); return; }
+    //else
+    pRoot["validity_end"]  = validity.toString("dd-MM-yyyy").trimmed().toStdString();
 
     if(ui->lnEdtPackage->text().isEmpty())    { updateStatus("Pls Enter Package Name"); return; }
-    else pRoot["package"] = ui->lnEdtPackage->text().toStdString();
+    else pRoot["package"] = ui->lnEdtPackage->text().trimmed().toStdString();
 
     QNetworkRequest request;
     request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");

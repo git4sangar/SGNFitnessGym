@@ -13,13 +13,16 @@ using json = nlohmann::ordered_json;
 class QueryResponseParser
 {
     json mRoot;
-    int32_t mRows, mCols;
 public:
     typedef std::shared_ptr<QueryResponseParser> Ptr;
+    int32_t mRows, mCols, mCurRow, mCurCol;
+
     QueryResponseParser(const json& pRoot)
         : mRoot(pRoot)
         , mRows(0)
-        , mCols(0) {
+        , mCols(0)
+        , mCurRow(-1)
+        , mCurCol(-1) {
             if(isOk()) {
                 mRows = (int32_t)mRoot["rows"].size();
                 mCols = (int32_t)mRoot["rows"][0].size();
