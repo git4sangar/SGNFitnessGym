@@ -2,7 +2,6 @@
 
 #include <iostream>
 #include <exception>
-
 #include "nlohmann_json.hpp"
 #include "RESTful.h"
 
@@ -22,6 +21,7 @@ void RESTful::configureRoutes()
 
     Pistache::Rest::Routes::Put(mRouter, "/attendance", Pistache::Rest::Routes::bind(&RESTful::putAttendance, this));
     Pistache::Rest::Routes::Put(mRouter, "/selectquery", Pistache::Rest::Routes::bind(&RESTful::executeSelectQuery, this));
+    Pistache::Rest::Routes::Put(mRouter, "/updatequery", Pistache::Rest::Routes::bind(&RESTful::executeUpdateQuery, this));
 }
 
 void RESTful::getEpochTime(const PistacheReq &request, PistacheResp response) {
@@ -157,7 +157,7 @@ void RESTful::putAttendance(const PistacheReq &request, PistacheResp response) {
 
 void RESTful::executeSelectQuery(const PistacheReq &request, PistacheResp response) {
 	std::string strQuery	= request.body();
-		mLogger << "Got a Select Query to execute: " << strQuery << std::endl;
+	mLogger << "Got a Select Query to execute: " << strQuery << std::endl;
 
 	if(strQuery.empty()) {
 		response.send(Pistache::Http::Code::Not_Found, packResponse(false, "Blank Query"), MIME(Application, Json));
@@ -171,8 +171,21 @@ void RESTful::executeSelectQuery(const PistacheReq &request, PistacheResp respon
 	}
 }
 
+void RESTful::executeUpdateQuery(const PistacheReq &request, PistacheResp response) {
+    json pRoot;
+    std::string strQuery	= request.body();
+    mLogger << "Got an Update Query to execute: " << strQuery << std::endl;
+
+    if(strQuery.empty()) {
+        response.send(Pistache::Http::Code::Not_Found, packResponse(false, "Blank Query"), MIME(Application, Json));
+        return;
+    }
+    pRoot["isOk"] = mpDBInterface->executeUpdateQuery(strQuery);
+    response.send(Pistache::Http::Code::Ok, pRoot.dump(), MIME(Application, Json));
+}
+
 void RESTful::addOrUpdateFee(const PistacheReq &request, PistacheResp response) {
-	mLogger << "Got add or update fee request" << std::endl;
+    mLogger << "Got add or update fee request" << std::endl;
 	
 	Fees::Ptr pFees, pFeesFromDB;
 	pFees		= Fees::parseFees(request.body());

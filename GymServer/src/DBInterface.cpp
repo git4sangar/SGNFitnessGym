@@ -16,24 +16,32 @@ DBInterface* DBInterface::pThis = nullptr;
 void DBInterface::packReportQueries() {
     mReportQueries  = json::array();
 
-    //  Array of 7 elements each
+    //  Array of 4 elements each
     json pRoot;
 
-    //  First set of 7 elements
+    //  First set of 4 elements
     pRoot = json();
     pRoot["Birthday List"]          = mBDAY_LIST;
     pRoot["Renewals"]               = mRENEWALS;
-    pRoot["Long Absentees"]         = mLONG_ABSENTEES + "     dd-mm-yyyy";
     pRoot["Attendance Today"]       = mCAME_TODAY;
-    pRoot["Attendance Yesterday"]   = mCAME_YESTERDAY;
+    //pRoot["Attendance Yesterday"]   = mCAME_YESTERDAY;
     pRoot["Attendance on Day"]      = mCAME_ON + "     dd-mm-yyyy";
-    pRoot["Attendance for Month"]   = mCAME_ON + "     mm-yyyy";
     mReportQueries.push_back(pRoot);
 
-    //  Second set of 7 elements
+    //  Second set of 4 elements
     pRoot = json();
-    pRoot["List all Members"]		= mALL_MEMBERS;
+    pRoot["Attendance for Month"]   = mCAME_ON + "     mm-yyyy";
+    pRoot["Long Absentees"]         = mLONG_ABSENTEES + "     dd-mm-yyyy";
     pRoot["List active Members"]	= mACTIVE_MEMBERS;
+    pRoot["List all Members"]		= mALL_MEMBERS;
+    mReportQueries.push_back(pRoot);
+
+    //  Third set of 4 elements
+    pRoot = json();
+    pRoot["Monthly Packagers"]		= mMONTHLY_PACKAGE;
+    pRoot["Quarterly Packagers"]	= mQUARTERLY_PACKAGE;
+    pRoot["Half Yearly Packagers"]	= mHALFYEARLY_PACKAGE;
+    pRoot["Annual Packagers"]		= mANNUAL_PACKAGE;
     mReportQueries.push_back(pRoot);
 }
 
@@ -215,14 +223,15 @@ json DBInterface::generateAttendanceRport(const std::string& strQuery) {
 
 		json row;
 		User::Ptr pUser	= getUser(pAttendance->mMembershipNo);
-		row["User No"]	= pAttendance->mMembershipNo;
-		row["Name"]     = pUser->mName;
-		row["Mobile"]   = std::to_string(pUser->mMobile);
-		row["Date"]     = pAttendance->mInDateString.length() != MyDateTime::DATE_TIME_LENGTH ? "-" : pAttendance->mInDateString.substr(0,10);
-		row["In Time"]	= pAttendance->mInDateString.length() != MyDateTime::DATE_TIME_LENGTH ? "-" : pAttendance->mInDateString.substr(11,5);
-		row["Out Time"]	= pAttendance->mOutDateString.length()!= MyDateTime::DATE_TIME_LENGTH ? "-" : pAttendance->mOutDateString.substr(11,5);
-		row["Duration"]	= MyDateTime::getTimeStr(pAttendance->mDuration);
-		row["Expiry"]	= std::make_shared<MyDateTime>(pUser->mValidityEnd)->getDateStr();
+        row["User No"]  = pAttendance->mMembershipNo;
+        row["Name"]     = pUser->mName;
+        row["Mobile"]   = std::to_string(pUser->mMobile);
+        row["Date"]     = pAttendance->mInDateString.length() != MyDateTime::DATE_TIME_LENGTH ? "-" : pAttendance->mInDateString.substr(0,10);
+        row["In Time"]  = pAttendance->mInDateString.length() != MyDateTime::DATE_TIME_LENGTH ? "-" : pAttendance->mInDateString.substr(11,5);
+        row["Out Time"] = pAttendance->mOutDateString.length()!= MyDateTime::DATE_TIME_LENGTH ? "-" : pAttendance->mOutDateString.substr(11,5);
+        row["Duration"] = MyDateTime::getTimeStr(pAttendance->mDuration);
+        row["Expiry"]   = std::make_shared<MyDateTime>(pUser->mValidityEnd)->getDateStr();
+        row["Remarks"]  = pUser->mRemarks;
 		rows.push_back(row);
 	}
 	return rows;
@@ -246,6 +255,7 @@ json DBInterface::generateBDayListReport() {
         row["Birthday"]     = std::make_shared<MyDateTime>(pUser->mDOB)->getDateStr();
         row["Mobile"]       = std::to_string(pUser->mMobile);
         row["Expiry"]       = std::make_shared<MyDateTime>(pUser->mValidityEnd)->getDateStr();
+        row["Remarks"]      = pUser->mRemarks;
         rows.push_back(row);
     }
     return rows;
@@ -267,6 +277,7 @@ json DBInterface::getUsersForReport(const std::string& pQuery) {
         row["Expiry"]       = std::make_shared<MyDateTime>(pUser->mValidityEnd)->getDateStr();
         row["Last Visit"]   = std::make_shared<MyDateTime>(pUser->mLastVisit)->getDateStr();
         row["In Time"]      = std::make_shared<MyDateTime>(pUser->mLastVisit)->getTimeStr();
+        row["Remarks"]      = pUser->mRemarks;
         rows.push_back(row);
     }
     return rows;
@@ -349,14 +360,22 @@ std::string DBInterface::executeUserSelectQuery(const std::string& pQuery) {
         }
     } else if(strTemp == lowerNoSpace(mALL_MEMBERS)) {
         pRoot["isOk"]   = true;
-        pRoot["rows"]	= getUsersForReport("SELECT * FROM user;");
+        pRoot["rows"]	= getUsersForReport("SELECT * FROM user ORDER BY last_visit DESC;");
         return pRoot.dump();
     } else if(strTemp == lowerNoSpace(mACTIVE_MEMBERS)) {
         tmTemp			= time(NULL) - (30 * SECS_IN_A_DAY);
-        ss.str(""); ss << "SELECT * FROM user WHERE last_visit > " << tmTemp << ";";
+        ss.str(""); ss << "SELECT * FROM user WHERE last_visit > " << tmTemp << " ORDER BY last_visit DESC;";
         pRoot["isOk"]   = true;
         pRoot["rows"]   = getUsersForReport(ss.str());
         return pRoot.dump();
+    } else if(strTemp.find("packagers") != std::string::npos) {
+        pRoot["isOk"]   = true;
+        std::string strQuery = "SELECT * FROM user WHERE membership_no IN (SELECT membership_no FROM fees WHERE package LIKE ";
+             if(strTemp.find("month") != std::string::npos)  pRoot["rows"] = getUsersForReport(strQuery + "\"%month%\");");
+        else if(strTemp.find("quart") != std::string::npos)  pRoot["rows"] = getUsersForReport(strQuery + "\"%quart%\");");
+        else if(strTemp.find("half")  != std::string::npos)  pRoot["rows"] = getUsersForReport(strQuery + "\"%half%\");");
+        else if(strTemp.find("annual")!= std::string::npos)  pRoot["rows"] = getUsersForReport(strQuery + "\"%annual%\");");
+        if(pRoot.contains("rows")) return pRoot.dump();
     }
 
 	return std::string();
@@ -377,9 +396,9 @@ std::vector<User::Ptr> DBInterface::executeSelectQuery(const std::string& pQuery
 
 bool DBInterface::executeUpdateQuery(const std::string& pQuery) {
     SQLite::Transaction transaction(*mDB);
-    mDB->exec(pQuery);
+    int iRowsModified = mDB->exec(pQuery);
     transaction.commit();
-    return true;
+    return (iRowsModified > 0);
 }
 
 
@@ -422,6 +441,7 @@ User::Ptr User::parseUser(SQLite::Statement *pQuery) {
     pUser->mAddress         = pQuery->getColumn("address").getString();
     pUser->mPhoto           = pQuery->getColumn("photo").getString();
     pUser->mEmail           = pQuery->getColumn("email").getString();
+    pUser->mRemarks         = pQuery->getColumn("remarks").getString();
 
     pUser->mMobile          = pQuery->getColumn("mobile").getInt64();
     pUser->mDOB             = pQuery->getColumn("dob").getInt64();
