@@ -399,7 +399,7 @@
             }</string>
           </property>
           <property name="placeholderText">
-           <string>Package</string>
+           <string>Monthly / Quarterly / Halfyearly / Annual</string>
           </property>
          </widget>
         </item>

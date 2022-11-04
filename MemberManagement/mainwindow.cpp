@@ -155,19 +155,19 @@ void MainWindow::onSubmitOrUpdate(bool isSubmit) {
     json pRoot;
 
     if(ui->lnEdtName->text().isEmpty())   { updateStatus("Pls enter name"); return; }
-    pRoot["name"]       = ui->lnEdtName->text().toStdString();
+    pRoot["name"]       = ui->lnEdtName->text().trimmed().toStdString();
 
     if(ui->lnEdtMobile->text().isEmpty())   { pRoot["mobile"] = ""; }
     else if(ui->lnEdtMobile->text().length() != 10) { updateStatus("Invalid Mobile no"); return; }
-    else pRoot["mobile"]= ui->lnEdtMobile->text().toStdString();
+    else pRoot["mobile"]= ui->lnEdtMobile->text().trimmed().toStdString();
 
     if(ui->lnEdtEmail->text().isEmpty())   { updateStatus("Pls enter email"); return; }
-    pRoot["email"]      = ui->lnEdtEmail->text().toStdString();
+    pRoot["email"]      = ui->lnEdtEmail->text().trimmed().toStdString();
 
     if(ui->txtEdtAddress->toPlainText().isEmpty())   { updateStatus("Pls enter address"); return; }
-    pRoot["address"]        = ui->txtEdtAddress->toPlainText().toStdString();
-    pRoot["validity_end"]   = ui->lnEdtRenewal->text().toStdString();
-    pRoot["last_visit"]     = ui->lnEdtLastVisit->text().toStdString();
+    pRoot["address"]        = ui->txtEdtAddress->toPlainText().trimmed().toStdString();
+    pRoot["validity_end"]   = ui->lnEdtRenewal->text().trimmed().toStdString();
+    pRoot["last_visit"]     = ui->lnEdtLastVisit->text().trimmed().toStdString();
     pRoot["dob"]            = ui->dtEdtDob->date().toString("dd-MM-yyyy").toStdString();
 
     if(ui->lnEdtMembershipNo->text().isEmpty()) { updateStatus("Click New Member button to get Membership No"); return; }
