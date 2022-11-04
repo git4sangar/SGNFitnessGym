@@ -297,9 +297,12 @@ json DBInterface::getLongAbsenteesReport(const std::string& pDate) {
     if(pDate.empty()) return json();
     std::stringstream ss;
 
-    MyDateTime::Ptr pDateTime = MyDateTime::create(pDate, "dd-MM-yyyy");
+    //  Get the end of day
+    MyDateTime::Ptr pDateTime = MyDateTime::create(pDate, "dd-MM-yyyy", false);
     if(!pDateTime) return json();
-    ss.str(""); ss << "SELECT * FROM user WHERE last_visit < " << pDateTime->getEpoch() << ";";
+    ss.str(""); ss << "SELECT * FROM user WHERE last_visit <= " << pDateTime->getEpoch()
+                    << " AND validity_end > " << time(0)
+                    << " ORDER BY validity_end DESC;";
     return getUsersForReport(ss.str());
 }
 
@@ -327,7 +330,11 @@ std::string DBInterface::executeUserSelectQuery(const std::string& pQuery) {
 
         } else if(strTemp.find(lowerNoSpace(mCAME_ON)) != std::string::npos) {
             strTemp.erase(0, lowerNoSpace(mCAME_ON).length());
-            if(strTemp.length() == 10) {
+            // Length can be 6 (1-xxxx) 
+            if(strTemp.length() == 6) strTemp = std::string("0") + strTemp;
+
+            // Length can be 8 (1-2-xxxx) to 10 (31-12-xxxx)
+            if(strTemp.length() > 7 && strTemp.length() < 11 ) {
                 pDateTime	= MyDateTime::create(strTemp, "dd-MM-yyyy"); bFlag = true;
                 ss.str(""); ss << "SELECT * FROM attendance WHERE SUBSTR(in_date_string, 1, 10) = \"" << pDateTime->getDateStr() << "\" ORDER BY in_time DESC;";
 
@@ -353,7 +360,8 @@ std::string DBInterface::executeUserSelectQuery(const std::string& pQuery) {
         return pRoot.dump();
     } else if(strTemp.find(lowerNoSpace(mLONG_ABSENTEES)) != std::string::npos) {
         strTemp.erase(0, lowerNoSpace(mLONG_ABSENTEES).length());
-        if(strTemp.length() == 10) {
+        // Length can be 8 (1-2-xxxx) to 10 (31-12-xxxx)
+        if(strTemp.length() > 7 && strTemp.length() < 11 ) {
             pRoot["isOk"]   = true;
             pRoot["rows"]   = getLongAbsenteesReport(strTemp);
             return pRoot.dump();
