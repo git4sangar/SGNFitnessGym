@@ -28,3 +28,18 @@ User::Ptr User::parseUser(const QString& pUserJson) {
 
     return pUser;
 }
+
+Staff::Ptr Staff::parseStaff(const QString pStaffJson) {
+    if(pStaffJson.isEmpty()) return nullptr;
+
+    Staff::Ptr pStaff   = std::make_shared<Staff>();
+    auto jsRoot         = json::parse(pStaffJson.toStdString(), nullptr, false);
+
+    bool isOk   = jsRoot.value<bool>("isOk", false);
+    if(!isOk) return nullptr;
+
+    pStaff->mId     = jsRoot.value<int32_t>("id", 0);
+    pStaff->mStaffNo= jsRoot.value<int32_t>("staff_no", 0);
+    pStaff->mName   = QString(jsRoot.value<std::string>("name", "").c_str());
+    return pStaff;
+}

@@ -23,8 +23,11 @@ public:
 private slots:
     void on_lnEdtMemberNo_returnPressed();
     void onUserResponse(QNetworkReply *pReply);
+    void onStaffResponse(QNetworkReply *pReply);
     void onAttendanceMarked(QNetworkReply *pReply);
+    void onStaffAttendanceMarked(QNetworkReply *pReply);
     void clearStatus();
+    void on_lnEdtStaffNo_returnPressed();
 
 private:
     void    updateStatus(QString pStatus, int delay = 5000);
@@ -36,6 +39,7 @@ private:
     QNetworkAccessManager   *mpHttpMgr;
     QTimer                  *mpStatusTimer;
     User::Ptr               mpUser;
+    Staff::Ptr              mpStaff;
     QString                 mImagesDir;
 };
 #endif // MAINWINDOW_H
