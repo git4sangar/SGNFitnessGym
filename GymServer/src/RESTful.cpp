@@ -10,6 +10,7 @@ using json = nlohmann::ordered_json;
 void RESTful::configureRoutes()
 {
     Pistache::Rest::Routes::Get(mRouter, "/user/:id", Pistache::Rest::Routes::bind(&RESTful::getUser, this));
+    Pistache::Rest::Routes::Get(mRouter, "/staff/:id", Pistache::Rest::Routes::bind(&RESTful::getStaff, this));
     Pistache::Rest::Routes::Get(mRouter, "/lastpayment/:id", Pistache::Rest::Routes::bind(&RESTful::getLastPayment, this));
     Pistache::Rest::Routes::Get(mRouter, "/epoch", Pistache::Rest::Routes::bind(&RESTful::getEpochTime, this));
     Pistache::Rest::Routes::Get(mRouter, "/getreportqueries", Pistache::Rest::Routes::bind(&RESTful::getReportQueries, this));
@@ -20,6 +21,7 @@ void RESTful::configureRoutes()
     Pistache::Rest::Routes::Post(mRouter, "/addorupdatefee", Pistache::Rest::Routes::bind(&RESTful::addOrUpdateFee, this));
 
     Pistache::Rest::Routes::Put(mRouter, "/attendance", Pistache::Rest::Routes::bind(&RESTful::putAttendance, this));
+    Pistache::Rest::Routes::Put(mRouter, "/staffattendance", Pistache::Rest::Routes::bind(&RESTful::putStaffAttendance, this));
     Pistache::Rest::Routes::Put(mRouter, "/selectquery", Pistache::Rest::Routes::bind(&RESTful::executeSelectQuery, this));
     Pistache::Rest::Routes::Put(mRouter, "/updatequery", Pistache::Rest::Routes::bind(&RESTful::executeUpdateQuery, this));
 }
@@ -53,6 +55,18 @@ void RESTful::getUser(const PistacheReq &request, PistacheResp response) {
         mLogger << e.what() << std::endl;
         response.send(Pistache::Http::Code::Internal_Server_Error, packResponse(false, "Exception getting user"), MIME(Application, Json));
     }
+}
+
+void RESTful::getStaff(const PistacheReq &request, PistacheResp response) {
+    int32_t staffNo     = request.param(":id").as<int32_t>();
+    mLogger << "Got staff request by staff no " << staffNo << std::endl;
+    
+    Staff::Ptr pStaff   = mpDBInterface->getStaff(staffNo);
+    if(pStaff) {
+        json pRoot      = pStaff->toJson();
+        pRoot["isOk"]   = true;
+        response.send(Pistache::Http::Code::Ok, pRoot.dump(), MIME(Application, Json));
+    } else response.send(Pistache::Http::Code::Not_Found, packResponse(false, "Unknown staff no"), MIME(Application, Json));
 }
 
 void RESTful::getNewMembershipNo(const PistacheReq &request, PistacheResp response) {
@@ -152,6 +166,28 @@ void RESTful::putAttendance(const PistacheReq &request, PistacheResp response) {
     } catch(std::exception &e) {
         mLogger << e.what() << std::endl;
         response.send(Pistache::Http::Code::Internal_Server_Error, packResponse(false, "Exception putting attendance"), MIME(Application, Json));
+    }
+}
+
+void RESTful::putStaffAttendance(const PistacheReq &request, PistacheResp response) {
+    mLogger << "Got PUT request for staff attendance" << std::endl;
+
+    Staff::Ptr pStaff;
+    int32_t staffNo     = -1, duration = -1;
+    auto root           = json::parse(request.body(), nullptr, false);
+
+    if(!root.is_discarded())    staffNo     = root.value<int32_t>("staff_no", -1);
+    if(staffNo != -1)           pStaff      = mpDBInterface->getStaff(staffNo);
+    if(pStaff)                  duration    = mpDBInterface->markStaffAttendance(pStaff->mStaffNo);
+
+         if(staffNo == -1)  response.send(Pistache::Http::Code::Bad_Request, packResponse(false, "Invalid Input"), MIME(Application, Json));
+    else if(!pStaff)        response.send(Pistache::Http::Code::Not_Found, packResponse(false, "Unknown Staff no"), MIME(Application, Json));
+    else if(duration == -1) response.send(Pistache::Http::Code::Internal_Server_Error, packResponse(false, "Error putting attendance"), MIME(Application, Json));
+    else {
+        json pRoot          = pStaff->toJson();
+        pRoot["isOk"]       = true;
+        pRoot["duration"]   = duration;
+        response.send(Pistache::Http::Code::Ok, pRoot.dump(),  MIME(Application, Json));
     }
 }
 

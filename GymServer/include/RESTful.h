@@ -33,9 +33,11 @@ public:
 private:
     void configureRoutes();
     void getUser(const PistacheReq &request, PistacheResp response);
+    void getStaff(const PistacheReq &request, PistacheResp response);
     void addNewUser(const PistacheReq &request, PistacheResp response);
     void updateUser(const PistacheReq &request, PistacheResp response);
     void putAttendance(const PistacheReq &request, PistacheResp response);
+    void putStaffAttendance(const PistacheReq &request, PistacheResp response);
     void getNewMembershipNo(const PistacheReq &request, PistacheResp response);
     void getUserByField(const PistacheReq &request, PistacheResp response);
     void addOrUpdateFee(const PistacheReq &request, PistacheResp response);

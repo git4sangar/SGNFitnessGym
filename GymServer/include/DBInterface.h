@@ -39,6 +39,42 @@ struct User {
     Logger& 	mLogger;
 };
 
+struct Staff {
+    typedef std::shared_ptr<Staff> Ptr;
+    Staff()
+    : mId(0)
+    , mStaffNo(0)
+    , mLogger(Logger::getInstance()) {}
+
+    json                toJson();
+    static Staff::Ptr   parseStaff(const std::string& pJson);
+    static Staff::Ptr   parseStaff(SQLite::Statement *pQuery);
+
+    std::string mName;
+    int32_t     mId, mStaffNo;
+    Logger&     mLogger;
+};
+
+struct StaffAttendance {
+    typedef std::shared_ptr<StaffAttendance> Ptr;
+    StaffAttendance()
+    : mId(0)
+    , mStaffNo(0)
+    , mInTime(MyDateTime::INVALID)
+    , mOutTime(MyDateTime::INVALID)
+    , mDuration(0)
+    , mLogger(Logger::getInstance()) {}
+
+    json 	toJson();
+    static  StaffAttendance::Ptr parseStaffAttendance(const std::string& pJson);
+    static  StaffAttendance::Ptr parseStaffAttendance(SQLite::Statement *pQuery);
+
+    std::string mName, mInDateString, mOutDateString;
+    int32_t     mId, mStaffNo;
+    time_t      mInTime, mOutTime, mDuration;
+    Logger&     mLogger;
+};
+
 struct Attendance {
     typedef std::shared_ptr<Attendance> Ptr;
     static constexpr int32_t MIN_WORKOUT_SECs  = (60 * 5);
@@ -97,6 +133,7 @@ class DBInterface {
     const std::string mMEMBERS_CAME     = "GET MEMBERS CAME";
     const std::string mCAME_TODAY       = "GET MEMBERS CAME TODAY";
     const std::string mCAME_YESTERDAY   = "GET MEMBERS CAME YESTERDAY";
+    const std::string mMEMBER_ATTENDANCE= "GET ATTENDANCE FOR MEMBER WITH";
     const std::string mCAME_ON          = "GET MEMBERS CAME ON";
     const std::string mBDAY_LIST        = "GET BIRTHDAY LIST";
     const std::string mRENEWALS         = "GET RENEWALS";
@@ -104,10 +141,15 @@ class DBInterface {
     const std::string mALL_MEMBERS		= "GET ALL MEMBERS";
     const std::string mACTIVE_MEMBERS	= "GET ACTIVE MEMBERS";
 
-	const std::string mMONTHLY_PACKAGE	= "GET MONTHLY PACKAGERS";
-	const std::string mQUARTERLY_PACKAGE	= "GET QUARTERLY PACKAGERS";
-	const std::string mHALFYEARLY_PACKAGE	= "GET HALFYEARLY PACKAGERS";
-	const std::string mANNUAL_PACKAGE	= "GET ANNUAL PACKAGERS";
+	const std::string mMONTHLY_PACKAGE      = "GET MONTHLY PACKAGERS";
+	const std::string mQUARTERLY_PACKAGE    = "GET QUARTERLY PACKAGERS";
+	const std::string mHALFYEARLY_PACKAGE   = "GET HALFYEARLY PACKAGERS";
+	const std::string mANNUAL_PACKAGE       = "GET ANNUAL PACKAGERS";
+
+    const std::string mNEW_STAFF            = "ADD NEW STAFF WITH NAME";
+    const std::string mLIST_STAFFS          = "GET ALL STAFFS";
+    const std::string mSTAFFS_CAME          = "GET STAFFS CAME";
+    const std::string mSTAFFS_ON            = "GET STAFFS CAME ON";
 
     json generateAttendanceRport(const std::string& strQuery);
     json generateBDayListReport();
@@ -127,6 +169,10 @@ class DBInterface {
         return strTemp;
     }
     std::string lowerNoSpace(const std::string& pString) { return removeAllSpaces(makeAllLower(pString)); }
+    void trim(std::string &s) {
+        s.erase(s.begin(), std::find_if(s.begin(), s.end(), [](unsigned char ch) {return !std::isspace(ch);}));
+        s.erase(std::find_if(s.rbegin(), s.rend(), [](unsigned char ch) {return !std::isspace(ch);}).base(), s.end());
+    }
 public:
     typedef std::shared_ptr<DBInterface> Ptr;
     static DBInterface *getInstance( std::string pFileName = "")
@@ -148,6 +194,11 @@ public:
 	bool                    executeUpdateQuery(const std::string& pQuery);
 	const json&             getReportQueryStrings() { return mReportQueries; }
 
-    bool					markAttendance(int32_t pMembershipNo);
-    Attendance::Ptr			getAttendance(uint32_t pMembershipNo);
+    bool                    markAttendance(int32_t pMembershipNo);
+    Attendance::Ptr         getAttendance(uint32_t pMembershipNo);
+    json                    getAllStaffs();
+    Staff::Ptr              getStaff(int32_t pStaffNo);
+    StaffAttendance::Ptr    getStaffAttendance(int32_t pStaffNo);
+    int32_t                 markStaffAttendance(int32_t pStaffNo);
+    json                    getStaffsForReport(const std::string& pQuery);
 };

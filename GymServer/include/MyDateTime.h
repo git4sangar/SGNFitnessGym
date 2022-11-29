@@ -47,7 +47,7 @@ class MyDateTime {
     }
 public:
     typedef std::shared_ptr<MyDateTime> Ptr;
-    static constexpr int8_t DATE_TIME_LENGTH   = 19;
+    static constexpr int8_t DATE_TIME_LENGTH   = 16;
     static constexpr int32_t INVALID   = 1;
 
     MyDateTime(time_t pDateTime = 0)
@@ -81,23 +81,21 @@ public:
         if(mDateTime == INVALID) return std::string();
         char buffer[64];
         auto tmTime = mDateTime;
-        strftime(buffer, 64, "%H:%M:%S", localtime(&tmTime));
+        strftime(buffer, 64, "%H:%M", localtime(&tmTime)); //:%S
         return std::string(buffer);
     }
 
-	static std::string getTimeStr(int32_t secs) {
-		std::stringstream sstr;
-		int32_t hh, mm, ss;
+    static std::string getTimeStr(int32_t secs) {
+        std::stringstream sstr;
+        int32_t hh, mm, ss;
 
-		hh	= secs / 3600;
-		ss	= secs % 3600;
-		mm	= ss / 60;
-		ss	= ss % 60;
-		sstr	<< std::setfill('0') << std::setw(2) << hh << ":"
-				<< std::setfill('0') << std::setw(2) << mm << ":"
-				<< std::setfill('0') << std::setw(2) << ss;
-		return sstr.str();
-	}
+        hh  = secs / 3600;
+        secs= secs % 3600;
+        mm  = secs / 60;
+        sstr	<< std::setfill('0') << std::setw(2) << hh << ":"
+                << std::setfill('0') << std::setw(2) << mm;
+        return sstr.str();
+    }
 
     static Ptr createSOD(int yyyy, int mon, int day) {
         return create(yyyy, mon, day, 4, 0, 0);
