@@ -74,10 +74,13 @@ void MainWindow::onReportQueries(QNetworkReply *pReply) {
 }
 
 void MainWindow::on_btnQuery_clicked() {
+    ui->txtEdtRemarks->setText("");
+    clearStatus();
     QString strQuery    = ui->lnEdtQuery->text();
     if(strQuery.isEmpty()) { updateStatus("Pls Enter a Query"); return; }
-    if(strQuery.contains("dd-") || strQuery.contains("mm-") || strQuery.contains("yyyy"))
-        { updateStatus("Pls enter date/month as suggested"); return; }
+    if(strQuery.contains("dd-") || strQuery.contains("mm-") ||
+       strQuery.contains("yyyy") || strQuery.contains("xxxx") || strQuery.contains("WITH user_no"))
+        { updateStatus("Pls enter date/month/user_no/name as suggested"); return; }
     queryDB(strQuery);
     setPhoto("logo_01.jpg");
     if(mpQueryResponse) mpQueryResponse->mCurRow = -1;

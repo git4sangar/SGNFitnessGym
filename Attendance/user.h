@@ -26,4 +26,18 @@ public:
     static User::Ptr    parseUser(const QString& pUserJson);
 };
 
+class Staff {
+    QString     mName;
+    int32_t     mId, mStaffNo;
+
+public:
+    typedef std::shared_ptr<Staff> Ptr;
+    Staff() : mId(0), mStaffNo(0) {}
+    virtual ~Staff() {}
+
+    static Staff::Ptr   parseStaff(const QString pStaffJson);
+    int32_t             getStaffNo() { return mStaffNo; }
+    QString             getName() { return mName; }
+};
+
 #endif // USER_H

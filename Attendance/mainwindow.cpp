@@ -35,10 +35,9 @@ MainWindow::~MainWindow() {
 
 // ----------------------------------------------------------
 //                   Network Requests & Responses
-//                  142.93.216.207,  192.168.83.12
+//                  142.93.216.207,  192.168.83.129
 // ----------------------------------------------------------
-void MainWindow::on_lnEdtMemberNo_returnPressed()
-{
+void MainWindow::on_lnEdtMemberNo_returnPressed() {
     QNetworkRequest request;
     QString userEnteredId   = ui->lnEdtMemberNo->text();
     QString strUrl          = QString("http://142.93.216.207:8080/user/") + userEnteredId;
@@ -94,6 +93,54 @@ void MainWindow::onAttendanceMarked(QNetworkReply *pReply) {
                         + QString::number(mm) + "(HH:MM), Have a Nice Day.";
     }
     updateStatus(strDisplay);
+}
+
+void MainWindow::on_lnEdtStaffNo_returnPressed() {
+    QNetworkRequest request;
+    QString staffEnteredId  = ui->lnEdtStaffNo->text();
+    QString strUrl          = QString("http://142.93.216.207:8080/staff/") + staffEnteredId;
+    request.setUrl(QUrl(strUrl));
+
+    connect(mpHttpMgr,&QNetworkAccessManager::finished, this, &MainWindow::onStaffResponse);
+    mpHttpMgr->get(request);
+}
+
+void MainWindow::onStaffResponse(QNetworkReply *pReply) {
+    disconnect(mpHttpMgr,&QNetworkAccessManager::finished, this, &MainWindow::onStaffResponse);
+    json root;
+    const auto& resp= QString(pReply->readAll());
+    mpStaff         = Staff::parseStaff(resp);
+    if(mpStaff) {
+        QNetworkRequest request;
+        request.setUrl(QUrl("http://142.93.216.207:8080/staffattendance"));
+
+        root["staff_no"]= mpStaff->getStaffNo();
+        QString jsPkt   = QString(root.dump().c_str());
+        connect(mpHttpMgr,&QNetworkAccessManager::finished, this, &MainWindow::onStaffAttendanceMarked);
+        mpHttpMgr->put(request, jsPkt.toUtf8());
+    } else updateStatus("Staff not found");
+}
+
+void MainWindow::onStaffAttendanceMarked(QNetworkReply *pReply) {
+    int32_t duration    = 0, hh = 0, mm = 0;
+    disconnect(mpHttpMgr,&QNetworkAccessManager::finished, this, &MainWindow::onStaffAttendanceMarked);
+    ui->lblName->setText(mpStaff->getName());
+
+    const auto& resp    = QString(pReply->readAll());
+    auto jsRoot         = json::parse(resp.toStdString(), nullptr, false);
+    if(jsRoot.is_discarded()) { updateStatus("Internal Error"); return; }
+
+    bool isOk           = jsRoot.value<bool>("isOk", false);
+    if(isOk) duration   = jsRoot.value<int32_t>("duration", 0);
+    if(duration == 0) {
+        updateStatus("Your shift begins now.");
+    } else {
+        hh          = duration / 3600;
+        duration    = duration % 3600;
+        mm          = duration / 60;
+        QString str = QString("This shift lasted ") + QString::number(hh) + QString(":") + QString::number(mm);
+        updateStatus(str);
+    }
 }
 
 int32_t MainWindow::getMembershipNoFromFileName(QString pFileName) {
@@ -190,3 +237,4 @@ void MainWindow::readDatagrams() {
     fp.close();
 }
 */
+
