@@ -195,15 +195,38 @@ int32_t DBInterface::markStaffAttendance(int32_t pStaffNo) {
         ss.str(""); ss << "UPDATE staffAttendance SET out_time = " << pNow->getEpoch()
                         << ", out_date_string = \"" << strDateTimeNow << "\", duration = " << duration
                         << " WHERE id = " << pSA->mId << ";";
+        mDB->exec(ss.str());
+
+        std::string strQuery = updateInOutString(pSA, pNow->getDateStr(), pNow->getTimeStr());
+        if(!strQuery.empty()) mDB->exec(strQuery);
     } else {
         duration        = 0;
         ss.str(""); ss << "INSERT INTO staffAttendance (staff_no, in_time, out_time, in_date_string, name) VALUES ("
                         << pStaffNo << ", " <<  pNow->getEpoch() << ", " << MyDateTime::INVALID
                         << ", \"" << strDateTimeNow << "\", \"" << pStaff->mName << "\" );";
+        mDB->exec(ss.str());
     }
-    mDB->exec(ss.str());
     transaction.commit();
     return duration;
+}
+
+std::string DBInterface::updateInOutString(StaffAttendance::Ptr pSA, const std::string& pDateString, const std::string& pOutTime) {
+    bool bUpdateDB = false;
+    std::stringstream ss;
+    std::string strInTime   = pSA->mInDateString.substr(11);
+    std::string dbInOutTime = pSA->mInOutString;
+    std::string strInOut    = strInTime + std::string("-") + pOutTime;
+    if(dbInOutTime.find(strInOut) == std::string::npos) {
+        bUpdateDB = true;
+        if(!dbInOutTime.empty()) dbInOutTime += std::string(";   ");
+        dbInOutTime += strInOut;
+    }
+    if(bUpdateDB) {
+        ss.str(""); ss  << "UPDATE staffAttendance SET in_out_string = \"" << dbInOutTime
+                        << "\" WHERE staff_no = " << pSA->mStaffNo
+                        << " AND SUBSTR(in_date_string, 1, 10) = \"" << pDateString << "\";";
+    }
+    return ss.str();
 }
 
 StaffAttendance::Ptr DBInterface::getStaffAttendance(int32_t pStaffNo) {
@@ -219,10 +242,15 @@ StaffAttendance::Ptr DBInterface::getStaffAttendance(int32_t pStaffNo) {
     StaffAttendance::Ptr pStaffAttendance, pTempPtr;
     time_t pInTime = MyDateTime::INVALID;
 
+    std::string strInOut;
     while(query.executeStep()) {
         pTempPtr = StaffAttendance::parseStaffAttendance(&query);
+        if(!pTempPtr->mInOutString.empty()) strInOut = pTempPtr->mInOutString;
         if(pTempPtr->mInTime > pInTime) { pStaffAttendance = pTempPtr; pInTime = pTempPtr->mInTime; }
     }
+
+    if(!strInOut.empty() && pStaffAttendance)
+        pStaffAttendance->mInOutString  = strInOut; // retain the in_out_string from last updated
 
     //  If no record or last record contains out-time, then return null so that a new row is inserted
     if(pStaffAttendance && pStaffAttendance->mOutTime > MyDateTime::INVALID) return nullptr;
@@ -381,6 +409,7 @@ json DBInterface::getStaffsForReport(const std::string& pQuery) {
         hrs             = query.getColumn("hours").getInt();
         mins            = query.getColumn("mins").getInt();
         row["Duration"] = std::to_string(hrs) + std::string(":") + std::to_string(mins);
+        row["In Out"]   = query.getColumn("in_out_string").getString();
         rows.push_back(row);
     }
     return rows;
@@ -513,11 +542,16 @@ std::string DBInterface::executeUserSelectQuery(const std::string& pQuery) {
         return pRoot.dump();
     } else if(strTemp.find("packagers") != std::string::npos) {
         pRoot["isOk"]   = true;
-        std::string strQuery = "SELECT * FROM user WHERE membership_no IN (SELECT membership_no FROM fees WHERE package LIKE ";
-             if(strTemp.find("month") != std::string::npos)  pRoot["rows"] = getUsersForReport(strQuery + "\"%month%\");");
-        else if(strTemp.find("quart") != std::string::npos)  pRoot["rows"] = getUsersForReport(strQuery + "\"%quart%\");");
-        else if(strTemp.find("half")  != std::string::npos)  pRoot["rows"] = getUsersForReport(strQuery + "\"%half%\");");
-        else if(strTemp.find("annual")!= std::string::npos)  pRoot["rows"] = getUsersForReport(strQuery + "\"%annual%\");");
+        //std::string strQuery = "SELECT * FROM user WHERE membership_no IN (SELECT membership_no FROM fees WHERE package LIKE ";
+        std::string strQuery = "SELECT * FROM user JOIN (SELECT membership_no, MAX(validity_end) FROM fees WHERE package LIKE ";
+             if(strTemp.find("month") != std::string::npos)  strQuery = strQuery + "\"%month%\"";
+        else if(strTemp.find("quart") != std::string::npos)  strQuery = strQuery + "\"%quart%\"";
+        else if(strTemp.find("half")  != std::string::npos)  strQuery = strQuery + "\"%half%\"";
+        else if(strTemp.find("annual")!= std::string::npos)  strQuery = strQuery + "\"%annual%\"";
+        strQuery = strQuery + " GROUP BY membership_no) USING(membership_no);";
+        mLogger << "Packagers query string " << strQuery << std::endl;
+
+        pRoot["rows"] = getUsersForReport(strQuery);
         if(pRoot.contains("rows")) return pRoot.dump();
     } else if(strTemp == lowerNoSpace(mLIST_STAFFS)) {
         pRoot["isOk"]   = true;
@@ -551,13 +585,13 @@ std::string DBInterface::executeUserSelectQuery(const std::string& pQuery) {
         // Length can be 8 (1-2-xxxx) to 10 (31-12-xxxx)
         if(strTemp.length() > 7 && strTemp.length() < 11 ) {
             pDateTime   = MyDateTime::create(strTemp, "dd-MM-yyyy");
-            ss.str(""); ss  << "SELECT staff_no, name, SUBSTR(in_date_string, 1, 10) as date_str, "
+            ss.str(""); ss  << "SELECT staff_no, name, SUBSTR(in_date_string, 1, 10) as date_str, in_out_string, "
                             << "SUM(duration) / 3600 as hours, (SUM(duration) % 3600) / 60 as mins FROM staffAttendance "
                             << "WHERE SUBSTR(in_date_string, 1, 10) = \"" << pDateTime->getDateStr()
                             << "\" GROUP BY date_str, staff_no ORDER BY staff_no ASC;";
         } else if(strTemp.length() == 7) {
            strTemp[2] = '-';   // 10-2022
-           ss.str(""); ss   << "SELECT staff_no, name, SUBSTR(in_date_string, 1, 10) as date_str, "
+           ss.str(""); ss   << "SELECT staff_no, name, SUBSTR(in_date_string, 1, 10) as date_str, in_out_string, "
                             << "SUM(duration) / 3600 as hours, (SUM(duration) % 3600) / 60 as mins FROM staffAttendance "
                             << "WHERE in_date_string IN (SELECT in_date_string FROM staffAttendance WHERE SUBSTR(in_date_string, 4, 7) = \"" << strTemp
                             << "\" ) GROUP BY date_str, staff_no ORDER BY staff_no ASC;";
@@ -857,6 +891,8 @@ json StaffAttendance::toJson() {
 
     pRoot["out_time"]           = mOutTime;
     pRoot["out_date_string"]    = mOutDateString;
+
+    pRoot["in_out_string"]      = mInOutString;
     pRoot["name"]               = mName;
 
     pRoot["duration"]           = mDuration;
@@ -879,6 +915,7 @@ StaffAttendance::Ptr StaffAttendance::parseStaffAttendance(const std::string& pJ
 
     pStaffAttendance->mOutTime              = jsRoot.value<time_t>("out_time", 1);
     pStaffAttendance->mOutDateString        = jsRoot.value<std::string>("out_date_string", "");
+    pStaffAttendance->mInOutString          = jsRoot.value<std::string>("in_out_string", "");
     pStaffAttendance->mName                 = jsRoot.value<std::string>("name", "");
 
     pStaffAttendance->mDuration             = jsRoot.value<int32_t>("duration", 0);
@@ -897,6 +934,7 @@ StaffAttendance::Ptr StaffAttendance::parseStaffAttendance(SQLite::Statement *pQ
 
     pStaffAttendance->mOutTime              = pQuery->getColumn("out_time").getInt64();
     pStaffAttendance->mOutDateString        = pQuery->getColumn("out_date_string").getString();
+    pStaffAttendance->mInOutString          = pQuery->getColumn("in_out_string").getString();
     pStaffAttendance->mName                 = pQuery->getColumn("name").getString();
 
     pStaffAttendance->mDuration             = pQuery->getColumn("duration").getInt();

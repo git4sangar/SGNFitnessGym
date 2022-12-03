@@ -69,7 +69,7 @@ struct StaffAttendance {
     static  StaffAttendance::Ptr parseStaffAttendance(const std::string& pJson);
     static  StaffAttendance::Ptr parseStaffAttendance(SQLite::Statement *pQuery);
 
-    std::string mName, mInDateString, mOutDateString;
+    std::string mName, mInDateString, mOutDateString, mInOutString;
     int32_t     mId, mStaffNo;
     time_t      mInTime, mOutTime, mDuration;
     Logger&     mLogger;
@@ -151,12 +151,13 @@ class DBInterface {
     const std::string mSTAFFS_CAME          = "GET STAFFS CAME";
     const std::string mSTAFFS_ON            = "GET STAFFS CAME ON";
 
-    json generateAttendanceRport(const std::string& strQuery);
-    json generateBDayListReport();
-    json getRenewalsReport();
-    json getLongAbsenteesReport(const std::string& pDate);
-    json getUsersForReport(const std::string& pQuery);
-    void packReportQueries();
+    json        generateAttendanceRport(const std::string& strQuery);
+    json        generateBDayListReport();
+    json        getRenewalsReport();
+    json        getLongAbsenteesReport(const std::string& pDate);
+    json        getUsersForReport(const std::string& pQuery);
+    void        packReportQueries();
+    std::string updateInOutString(StaffAttendance::Ptr pSA, const std::string& pDate, const std::string& pOutTime);
 
     std::string removeAllSpaces(const std::string& pUserString) {
         std::string strTemp;
